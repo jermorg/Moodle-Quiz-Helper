@@ -17,7 +17,7 @@
             "https://dist.nupp.edu.ua/mod/quiz/*"
         ],
         "js": [
-            "jquery.min.js",
+            "libs/jquery.min.js",
             "highlighter.js"
         ],
         "run_at": "document_idle"
