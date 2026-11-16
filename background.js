@@ -1,45 +1,18 @@
-$(function () {
-    const clean = (str) => (str || '')
-        .replace(/\u00A0/g, ' ')
-        .replace(/[’`ʼ]/g, "'")
-        .replace(/\s+/g, ' ')
-        .trim();
+(async function () {
+    const {
+        clean,
+        makeHash,
+        extractQuestionId,
+        extractMediaSignatures
+    } = await import(chrome.runtime.getURL('shared/utils.js'));
 
-    const makeHash = (str) => {
-        let hash = 5381;
-        for (let i = 0; i < str.length; i++) {
-            hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
-        }
-        return (hash >>> 0).toString(16);
-    };
-
-    function extractQuestionId($block) {
-        const flagData = $block.find('.questionflagpostdata').val() || '';
-        const flagMatch = flagData.match(/qid=(\d+)/);
-        if (flagMatch) return flagMatch[1];
-
-        let foundId = null;
-        $block.find('.qtext img, .answer img').each((_, img) => {
-        const urlMatch = ($(img).attr('src') || '').match(/\/questiontext\/\d+\/\d+\/(\d+)\//);
-        if (urlMatch) {
-            foundId = urlMatch[1];
-            return false; // break
-        }
-        });
-        return foundId;
-    }
-
-    function extractMediaSignatures($container) {
-        if (!$container.length) return [];
-        return $container.find('img, audio, video, source').map((_, el) => {
-            return ($(el).attr('src') || '').split('/').pop()?.split('?')[0] || '';
-        }).get().filter(Boolean);
-    }
+    const { findQuestionEntry } = await import(chrome.runtime.getURL('database/db.js'));
+    const $ = window.jQuery;
 
     function clearHighlights() {
         $('.moodle-helper-mark')
-            .css({ backgroundColor: '', border: '', borderRadius: '', padding: '', marginBottom: '' })
-            .removeClass('moodle-helper-mark');
+        .css({ backgroundColor: '', border: '', borderRadius: '', padding: '', marginBottom: '' })
+        .removeClass('moodle-helper-mark');
 
         $('.moodle-helper-badge, .moodle-helper-header-status, .moodle-helper-text-hint').remove();
     }
@@ -74,13 +47,35 @@ $(function () {
         $target.append($badge);
     }
 
+    function renderHeaderStatus($block, hasCorrect, isDeduced, wrongCount, totalOptions) {
+        const $infoBox = $block.find('.info');
+        if (!$infoBox.length) return;
+
+        const statusText = hasCorrect
+        ? (isDeduced ? 'База: вирахувано' : 'База: є відповідь')
+        : `База: виключено ${wrongCount} з ${totalOptions}`;
+
+        $('<div>')
+        .addClass('moodle-helper-header-status')
+        .text(statusText)
+        .css({
+            marginTop: '8px',
+            padding: '4px 6px',
+            fontSize: '11px',
+            fontWeight: '600',
+            borderRadius: '4px',
+            background: hasCorrect ? '#d4edda' : '#fff3cd',
+            color: hasCorrect ? '#155724' : '#856404',
+            border: `1px solid ${hasCorrect ? '#c3e6cb' : '#ffeeba'}`
+        })
+        .appendTo($infoBox);
+    }
+
     async function runBackgroundHighlight() {
-        const { quizDatabase } = await chrome.storage.local.get(['quizDatabase']);
         clearHighlights();
 
-        if (!quizDatabase || !Object.keys(quizDatabase).length) return;
-
-        $('.que').each((_, blockEl) => {
+        const blocks = $('.que').get();
+        for (const blockEl of blocks) {
         const $block = $(blockEl);
         const $qtext = $block.find('.qtext');
         const questionText = clean($qtext.text());
@@ -109,18 +104,13 @@ $(function () {
         const currentOptions = rowItems.map(i => i.optionText);
         const fingerprint = makeHash(`${questionText}::${qMedia.join(',')}::${[...currentOptions].sort().join('|')}`);
 
-        // Пошук у базі: спочатку за qid, потім за точним fingerprint
-        let entry = qid ? quizDatabase[`qid:${qid}`] : null;
-        if (!entry) {
-            entry = quizDatabase[`fp:${fingerprint}`];
-        }
-        if (!entry) return;
+        const entry = await findQuestionEntry(qid, fingerprint);
+        if (!entry) continue;
 
         const wrongList = entry.wrong_answers || [];
         let deducedCorrects = Array.isArray(entry.correct_answers) ? [...entry.correct_answers] : [];
         let isDeduced = false;
 
-        // Метод виключення
         if (!deducedCorrects.length && currentOptions.length > 1) {
             const remaining = currentOptions.filter(opt => !wrongList.includes(opt));
             if (remaining.length === 1) {
@@ -129,33 +119,10 @@ $(function () {
             }
         }
 
-        if (!deducedCorrects.length && !wrongList.length) return;
+        if (!deducedCorrects.length && !wrongList.length) continue;
 
-        // Статусний бейдж у лівій колонці (.info)
-        const $infoBox = $block.find('.info');
-        if ($infoBox.length) {
-            const hasCorrect = deducedCorrects.length > 0;
-            const statusText = hasCorrect
-            ? (isDeduced ? 'База: вирахувано' : 'База: є відповідь')
-            : `База: виключено ${wrongList.length} з ${currentOptions.length}`;
+        renderHeaderStatus($block, deducedCorrects.length > 0, isDeduced, wrongList.length, currentOptions.length);
 
-            $('<div>')
-            .addClass('moodle-helper-header-status')
-            .text(statusText)
-            .css({
-                marginTop: '8px',
-                padding: '4px 6px',
-                fontSize: '11px',
-                fontWeight: '600',
-                borderRadius: '4px',
-                background: hasCorrect ? '#d4edda' : '#fff3cd',
-                color: hasCorrect ? '#155724' : '#856404',
-                border: `1px solid ${hasCorrect ? '#c3e6cb' : '#ffeeba'}`
-            })
-            .appendTo($infoBox);
-        }
-
-        // Підсвічування варіантів вибору (radio / checkbox)
         $.each(rowItems, (_, { $row, optionText }) => {
             if (deducedCorrects.includes(optionText)) {
             paintRow($row, '#d4edda', '#28a745', isDeduced ? 'Правильно (виключенням)' : 'Правильно');
@@ -164,7 +131,6 @@ $(function () {
             }
         });
 
-        // Підказка для текстових полів або випадаючих списків
         if (!rowItems.length && (deducedCorrects.length || wrongList.length)) {
             const $answerBlock = $block.find('.answer');
             if ($answerBlock.length) {
@@ -187,16 +153,14 @@ $(function () {
                 .appendTo($answerBlock);
             }
         }
-        });
+        }
     }
 
-    // 1. Автоматичний запуск при відкритті сторінки тесту
-    runBackgroundHighlight();
+    $(runBackgroundHighlight);
 
-    // 2. Миттєве оновлення при зміні бази в іншому вікні/popup
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'local' && changes.quizDatabase) {
         runBackgroundHighlight();
         }
     });
-});
+})();

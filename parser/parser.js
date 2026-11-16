@@ -10,7 +10,7 @@ export function universalMoodleParser() {
 
     const results = [];
 
-    // Шукаємо всі елементи з класщм .que (обєкт, в якому лежить питання + відповіді)
+    // Шукаємо всі елементи з класом .que (обєкт, в якому лежить питання + відповіді)
     $('.que').each((_, blockEl) => {
         const $block = $(blockEl);
         const $qtext = $block.find('.qtext');           // Текст питання

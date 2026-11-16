@@ -18,9 +18,18 @@
         ],
         "js": [
             "libs/jquery.min.js",
-            "highlighter.js"
+            "background.js"
         ],
         "run_at": "document_idle"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+        "resources": [
+            "database/*.js",
+            "shared/*.js"
+        ],
+        "matches": ["https://dist.nupp.edu.ua/*"]
         }
     ]
 }
