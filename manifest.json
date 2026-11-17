@@ -22,6 +22,9 @@
             "matches": [
                 "https://dist.nupp.edu.ua/mod/quiz/*"
             ],
+            "css": [
+                "styles/background.css"
+            ],
             "js": [
                 "libs/jquery.min.js",
                 "background.js"

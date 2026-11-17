@@ -1,0 +1,355 @@
+:root {
+    --bg-canvas: #f2f2f7;
+    --bg-card: #ffffff;
+    --bg-input: #f7f7fa;
+    --bg-segment: #e5e5ea;
+    --text-primary: #010101;
+    --text-secondary: #636366;
+    --text-muted: #8e8e93;
+    --border-subtle: rgba(0, 0, 0, 0.06);
+
+    /* Фірмова палітра One UI */
+    --oneui-blue: #0381fe;
+    --oneui-blue-hover: #006ee6;
+    --oneui-green: #00a86b;
+    --oneui-green-hover: #008f5b;
+    --oneui-red: #e53935;
+    --oneui-red-soft: rgba(229, 57, 53, 0.12);
+    --oneui-neutral-btn: #eef0f4;
+    --oneui-neutral-hover: #e2e5ec;
+
+    --radius-card: 22px;
+    --radius-input: 16px;
+    --radius-pill: 999px;
+    --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-canvas: #010101;
+        --bg-card: #17171a;
+        --bg-input: #222226;
+        --bg-segment: #252529;
+        --text-primary: #fafafa;
+        --text-secondary: #a1a1a6;
+        --text-muted: #7c7c82;
+        --border-subtle: rgba(255, 255, 255, 0.08);
+
+        --oneui-blue: #3b9eff;
+        --oneui-blue-hover: #5cb0ff;
+        --oneui-green: #1ec987;
+        --oneui-green-hover: #38d699;
+        --oneui-red: #ff5c58;
+        --oneui-red-soft: rgba(255, 92, 88, 0.16);
+        --oneui-neutral-btn: #25252a;
+        --oneui-neutral-hover: #303036;
+
+        --shadow-card: none;
+    }
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    width: 390px;
+    margin: 0;
+    padding: 14px;
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: "One UI Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+}
+
+/* Шапка */
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 6px 12px;
+}
+
+.app-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.app-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--oneui-blue);
+    box-shadow: 0 0 0 3px rgba(3, 129, 254, 0.18);
+}
+
+.app-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+}
+
+.app-badge {
+    padding: 3px 9px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+}
+
+/* Сегментовані вкладки One UI */
+.tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: 12px;
+    background: var(--bg-segment);
+    border-radius: var(--radius-pill);
+}
+
+.tab {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 8px 12px;
+    border-radius: var(--radius-pill);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tab:hover {
+    color: var(--text-primary);
+}
+
+.tab.active {
+    background: var(--bg-card);
+    color: var(--oneui-blue);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+}
+
+/* Панелі та картки */
+.panel {
+    display: none;
+    animation: fadeIn 0.18s ease;
+}
+
+.panel.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(3px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+    background: var(--bg-card);
+    border-radius: var(--radius-card);
+    padding: 14px;
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
+}
+
+.section-label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0 0 8px 4px;
+}
+
+/* Поле вводу JSON */
+textarea {
+    width: 100%;
+    height: 145px;
+    padding: 12px;
+    margin-bottom: 12px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-input);
+    font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 11.5px;
+    line-height: 1.45;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+textarea::placeholder {
+    color: var(--text-muted);
+}
+
+textarea:focus {
+    border-color: var(--oneui-blue);
+    box-shadow: 0 0 0 3px rgba(3, 129, 254, 0.15);
+}
+
+/* Кнопки-пігулки */
+.btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.btn-row {
+    display: flex;
+    gap: 8px;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    height: 40px;
+    padding: 0 16px;
+    border: none;
+    border-radius: var(--radius-pill);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.12s ease, background-color 0.18s ease, opacity 0.18s ease;
+}
+
+.btn-row .btn {
+    flex: 1;
+    width: auto;
+}
+
+.btn:active {
+    transform: scale(0.97);
+}
+
+.btn svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+
+.btn-primary {
+    background: var(--oneui-blue);
+    color: #ffffff;
+}
+
+.btn-primary:hover {
+    background: var(--oneui-blue-hover);
+}
+
+.btn-primary.green,
+.btn-success {
+    background: var(--oneui-green);
+    color: #ffffff;
+}
+
+.btn-primary.green:hover,
+.btn-success:hover {
+    background: var(--oneui-green-hover);
+}
+
+.btn-secondary {
+    background: var(--oneui-neutral-btn);
+    color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+    background: var(--oneui-neutral-hover);
+}
+
+.btn-danger {
+    background: var(--oneui-red-soft);
+    color: var(--oneui-red);
+}
+
+.btn-danger:hover {
+    background: var(--oneui-red);
+    color: #ffffff;
+}
+
+/* Блок статусу */
+.status-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: var(--bg-card);
+    border-radius: 18px;
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    margin-top: 4px;
+    border-radius: 50%;
+    background: var(--oneui-green);
+    flex-shrink: 0;
+}
+
+.status-inline {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--bg-input);
+    border-radius: 14px;
+}
+
+.status {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+}
+
+/* Вивід JSON парсера */
+pre {
+    margin: 10px 0 0;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    padding: 10px 12px;
+    border-radius: var(--radius-input);
+    border: 1px solid var(--border-subtle);
+    font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+pre:empty {
+    display: none;
+}
+
+/* Акуратний скролбар */
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.3);
+    border-radius: var(--radius-pill);
+}
