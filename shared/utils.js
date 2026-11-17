@@ -31,8 +31,16 @@ export const extractQuestionId = ($block) => {
 export const extractMediaSignatures = ($container) => {
     if (!$container.length) return [];
     return $container.find('img, audio, video, source').map((_, el) => {
+        const src = ($(el).attr('src') || '').split('?')[0];
+        if (!src) return '';
+
+        // Витягуємо стабільний ID запису (/question/answer/<qubaid>/<slot>/<answer_id>/file.png
+        // або /question/questiontext/<qubaid>/<slot>/<qid>/file.png)
+        const moodleMatch = src.match(/\/question\/(?:answer|questiontext)\/\d+\/\d+\/(\d+)\/([^/]+)$/);
+        if (moodleMatch) {
+            return `${moodleMatch[1]}/${moodleMatch[2]}`;
+        }
         
-        return ($(el).attr('src') || '').split('/').pop()?.split('?')[0] || '';
-        
+        return src.split('/').pop() || '';
     }).get().filter(Boolean);
 };
