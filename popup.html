@@ -1,133 +1,304 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-    <meta charset="UTF-8">
-    <style>
-        body {
-            width: 400px;
-            padding: 12px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            margin: 0;
-            color: #202124;
-        }
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid #dadce0;
-            margin-bottom: 10px;
-        }
-        .tab {
-            flex: 1;
-            text-align: center;
-            padding: 8px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            color: #5f6368;
-            border-bottom: 2px solid transparent;
-        }
-        .tab.active {
-            color: #1a73e8;
-            border-bottom-color: #1a73e8;
-        }
-        .panel {
-            display: none;
-        }
-        .panel.active {
-            display: block;
-        }
-        .btn-row {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 8px;
-        }
-        button {
-            flex: 1;
-            padding: 9px 6px;
-            background: #1a73e8;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #1557b0;
-        }
-        button.green {
-            background: #188038;
-        }
-        button.green:hover {
-            background: #137333;
-        }
-        button.red {
-            background: #d93025;
-        }
-        button.red:hover {
-            background: #b3261e;
-        }
-        textarea {
-            width: 100%;
-            height: 155px;
-            box-sizing: border-box;
-            padding: 8px;
-            border: 1px solid #dadce0;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 11px;
-            resize: vertical;
-            margin-bottom: 8px;
-        }
-        pre {
-            margin: 0;
-            max-height: 230px;
-            overflow-y: auto;
-            background: #f1f3f4;
-            padding: 8px;
-            border-radius: 5px;
-            font-size: 11px;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        .status {
-            font-size: 12px;
-            color: #5f6368;
-            margin-bottom: 6px;
-            line-height: 1.4;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #16a34a;
+      --success-hover: #15803d;
+      --danger: #dc2626;
+      --danger-hover: #b91c1c;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 400px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    header {
+      background: var(--card);
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+
+    .conn-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .conn-pill.online {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .tabs {
+      display: flex;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 0 8px;
+    }
+
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 9px 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+
+    .tab:hover {
+      color: var(--text);
+    }
+
+    .tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .panel {
+      display: none;
+      padding: 14px;
+    }
+
+    .panel.active {
+      display: block;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .field {
+      margin-bottom: 10px;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+      background: #fff;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: var(--primary);
+    }
+
+    textarea {
+      height: 115px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      resize: vertical;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    button {
+      flex: 1;
+      padding: 8px 10px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #fff;
+      background: var(--primary);
+      transition: background 0.15s, opacity 0.15s;
+    }
+
+    button:hover {
+      background: var(--primary-hover);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    button.green {
+      background: var(--success);
+    }
+
+    button.green:hover {
+      background: var(--success-hover);
+    }
+
+    button.red {
+      background: var(--danger);
+    }
+
+    button.red:hover {
+      background: var(--danger-hover);
+    }
+
+    button.outline {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    button.outline:hover {
+      background: #f1f5f9;
+    }
+
+    .status-box {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--muted);
+      background: #f1f5f9;
+      padding: 8px 10px;
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+
+    .status-box b {
+      color: var(--text);
+    }
+
+    pre {
+      margin-top: 8px;
+      max-height: 190px;
+      overflow-y: auto;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
 </head>
 <body>
-    <div class="tabs">
-        <div class="tab active" data-target="dbPanel">База відповідей (фон)</div>
-        <div class="tab" data-target="parsePanel">Зпарсити сторінку</div>
+  <header>
+    <h1>Moodle Quiz Helper</h1>
+    <span id="connPill" class="conn-pill">Офлайн</span>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-target="syncPanel">Сервер</div>
+    <div class="tab" data-target="dbPanel">Локальна база</div>
+    <div class="tab" data-target="parsePanel">Парсер</div>
+  </div>
+
+  <!-- Вкладка 1: Підключення до сервера -->
+  <div id="syncPanel" class="panel active">
+    <div class="card">
+      <div class="field">
+        <label for="serverUrl">Посилання на сервер (Tunnel URL)</label>
+        <input type="text" id="serverUrl" placeholder="https://xxxx.trycloudflare.com">
+      </div>
+      <div class="field">
+        <label for="apiToken">Секретний токен (Token)</label>
+        <input type="password" id="apiToken" placeholder="Введіть API_TOKEN...">
+      </div>
+      <div class="btn-row">
+        <button id="connectBtn" class="green">Підключити і синхронізувати</button>
+      </div>
     </div>
 
-    <!-- Вкладка 1: Вставка JSON у фонову базу -->
-    <div id="dbPanel" class="panel active">
-        <textarea id="jsonInput" placeholder="Вставте сюди JSON з парсера..."></textarea>
-        <div class="btn-row">
-        <button id="saveBtn" class="green">Зберегти в базу</button>
-        <button id="exportBtn">Експорт бази</button>
-        <button id="clearBtn" class="red">Очистити</button>
-        </div>
-        <div id="dbStatus" class="status">База порожня.</div>
+    <div class="btn-row">
+      <button id="forceSyncBtn" class="outline">Оновити базу зараз</button>
+      <button id="disconnectBtn" class="red" style="flex: 0.45;">Вийти</button>
     </div>
 
-    <!-- Вкладка 2: Парсер -->
-    <div id="parsePanel" class="panel">
-        <div class="btn-row">
-        <button id="parseBtn">Зпарсити тест</button>
-        <button id="copyBtn" class="green" style="display: none;">Копіювати JSON</button>
-        </div>
-        <div id="parseStatus" class="status">Відкрийте сторінку результатів (review.php) та натисніть «Зпарсити тест».</div>
-        <pre id="parseOutput"></pre>
+    <div id="syncStatus" class="status-box">
+      Введіть посилання та токен, щоб увімкнути автоматичний обмін відповідями.
     </div>
+  </div>
 
-    <script src="libs/jquery.min.js"></script>
+  <!-- Вкладка 2: Ручне керування локальною базою -->
+  <div id="dbPanel" class="panel">
+    <div class="card">
+      <div class="field">
+        <label for="jsonInput">Ручний імпорт JSON (резервний)</label>
+        <textarea id="jsonInput" placeholder="Вставте масив питань [...]"></textarea>
+      </div>
+      <div class="btn-row">
+        <button id="saveJsonBtn" class="green">Додати в базу</button>
+        <button id="exportBtn" class="outline">Експорт</button>
+        <button id="clearBtn" class="red" style="flex: 0.6;">Очистити</button>
+      </div>
+    </div>
+    <div id="dbStatus" class="status-box">Завантаження статистики...</div>
+  </div>
 
-    <script src="ui.js" ></script>
-    <script type="module" src="parser/parser-ui.js" ></script>
-    <script type="module" src="database/db-ui.js" ></script>
+  <!-- Вкладка 3: Ручний парсинг -->
+  <div id="parsePanel" class="panel">
+    <div class="btn-row" style="margin-top: 0;">
+      <button id="parseBtn">Зпарсити поточну сторінку</button>
+      <button id="copyBtn" class="green" style="display: none;">Копіювати</button>
+    </div>
+    <div id="parseStatus" class="status-box">
+      На сторінці результатів (review.php) парсинг і відправка на сервер відбуваються автоматично, але ви можете запустити їх вручну тут.
+    </div>
+    <pre id="parseOutput" style="display: none;"></pre>
+  </div>
+
+  <script src="libs/jquery.min.js"></script>
+  <script type="module" src="ui.js"></script>
 </body>
 </html>

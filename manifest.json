@@ -1,35 +1,42 @@
 {
     "manifest_version": 3,
     "name": "Moodle Quiz Helper",
-    "version": "1.0",
+    "version": "1.2",
     "description": "Універсальний парсер та фонова підсвітка відповідей у Moodle",
     "permissions": [
         "activeTab",
         "scripting",
         "storage"
     ],
+    "host_permissions": [
+        "https://dist.nupp.edu.ua/*",
+        "https://*/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+    ],
     "action": {
         "default_popup": "popup.html"
     },
     "content_scripts": [
         {
-        "matches": [
-            "https://dist.nupp.edu.ua/mod/quiz/*"
-        ],
-        "js": [
-            "libs/jquery.min.js",
-            "background.js"
-        ],
-        "run_at": "document_idle"
+            "matches": [
+                "https://dist.nupp.edu.ua/mod/quiz/*"
+            ],
+            "js": [
+                "libs/jquery.min.js",
+                "background.js"
+            ],
+            "run_at": "document_idle"
         }
     ],
     "web_accessible_resources": [
         {
-        "resources": [
-            "database/*.js",
-            "shared/*.js"
-        ],
-        "matches": ["https://dist.nupp.edu.ua/*"]
+            "resources": [
+                "database/*.js",
+                "parser/*.js",
+                "shared/*.js"
+            ],
+            "matches": ["https://dist.nupp.edu.ua/*"]
         }
     ]
 }

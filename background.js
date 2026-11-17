@@ -1,5 +1,5 @@
 (async function () {
-    
+
     const {
         clean,
         makeHash,
@@ -7,8 +7,43 @@
         extractMediaSignatures
     } = await import(chrome.runtime.getURL('shared/utils.js'));
 
-    const { findQuestionEntry } = await import(chrome.runtime.getURL('database/db.js'));
+    const { findQuestionEntry, addQuestionsToDatabase } = await import(
+        chrome.runtime.getURL('database/db.js')
+    );
+
+    const { pullFromServer, pushToServer } = await import(
+        chrome.runtime.getURL('shared/sync.js')
+    );
+
+    const { universalMoodleParser } = await import(
+        chrome.runtime.getURL('parser/parser.js')
+    );
+
     const $ = window.jQuery;
+
+    function showToast(text, isError = false) {
+        const $toast = $('<div>')
+            .text(text)
+            .css({
+                position: 'fixed',
+                bottom: '18px',
+                right: '18px',
+                zIndex: 99999,
+                padding: '10px 14px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: '#fff',
+                background: isError ? '#dc2626' : '#16a34a',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                opacity: 0,
+                transition: 'opacity 0.2s'
+            })
+            .appendTo('body');
+
+        requestAnimationFrame(() => $toast.css('opacity', 1));
+        setTimeout(() => $toast.fadeOut(300, () => $toast.remove()), 3500);
+    }
 
     function clearHighlights() {
         $('.moodle-helper-mark')
@@ -157,8 +192,31 @@
         }
     }
 
-    $(runBackgroundHighlight);
+    // Головний цикл роботи на сторінці
+    $(async function () {
+        // 1. Якщо це сторінка результатів (review.php) — автоматично парсимо та відправляємо на сервер
+        if (window.location.pathname.includes('/mod/quiz/review.php')) {
+            try {
+                const scraped = await universalMoodleParser();
+                if (scraped.length > 0) {
+                    await addQuestionsToDatabase(scraped);
+                    const res = await pushToServer(scraped);
+                    if (res) {
+                        showToast(`Синхронізовано ${res.merged} питань (всього на сервері: ${res.total})`);
+                    }
+                }
+            } catch (e) {
+                console.warn('Auto-scrape/push error:', e);
+                showToast(`Помилка автосинхронізації: ${e.message}`, true);
+            }
+        }
 
+        // 2. Підтягуємо свіжі питання з сервера (якщо підключений) і підсвічуємо
+        await pullFromServer().catch(e => console.warn('Sync pull error:', e));
+        await runBackgroundHighlight();
+    });
+
+    // Реакція на зміни бази з popup
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'local' && changes.quizDatabase) {
             runBackgroundHighlight();
