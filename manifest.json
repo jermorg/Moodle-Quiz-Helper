@@ -13,14 +13,17 @@
     },
     "content_scripts": [
         {
-        "matches": [
-            "https://dist.nupp.edu.ua/mod/quiz/*"
-        ],
-        "js": [
-            "libs/jquery.min.js",
-            "highlighter.js"
-        ],
-        "run_at": "document_idle"
+            "matches": [
+                "https://dist.nupp.edu.ua/mod/quiz/*"
+            ],
+            "css": [
+                "highlighter.css"
+            ],
+            "js": [
+                "libs/jquery.min.js",
+                "highlighter.js"
+            ],
+            "run_at": "document_idle"
         }
     ]
 }
