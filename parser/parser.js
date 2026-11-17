@@ -1,11 +1,11 @@
-import {
-    clean,
-    makeHash,
-    extractQuestionId,
-    extractMediaSignatures
-} from '../shared/utils.js';
+export async function universalMoodleParser() {
+    const {
+        clean,
+        makeHash,
+        extractQuestionId,
+        extractMediaSignatures
+    } = await import(chrome.runtime.getURL('shared/utils.js'));
 
-export function universalMoodleParser() {
     const $ = window.jQuery;
 
     const results = [];

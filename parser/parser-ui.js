@@ -1,4 +1,6 @@
-import { universalMoodleParser } from './parser.js';
+import {
+    universalMoodleParser
+} from './parser.js';
 
 const $parseBtn = $('#parseBtn');
 const $copyBtn = $('#copyBtn');
@@ -26,6 +28,8 @@ $parseBtn.on('click', async () => {
             target: { tabId: tab.id },
             func: universalMoodleParser
         });
+
+        console.log(result)
 
         if (!result || !result.length) {
             $parseStatus.text('Питань (.que) на цій сторінці не знайдено.');
