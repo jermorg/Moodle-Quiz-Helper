@@ -103,40 +103,40 @@ app.post('/api/sync', authMiddleware, (req, res) => {
     db.exec('BEGIN TRANSACTION');
     try {
         for (const item of incoming) {
-        if (!item.key) continue;
+            if (!item.key) continue;
 
-        const existing = selectStmt.get(item.key);
-        const correctSet = new Set(existing ? JSON.parse(existing.correct_answers) : []);
-        const wrongSet = new Set(existing ? JSON.parse(existing.wrong_answers) : []);
+            const existing = selectStmt.get(item.key);
+            const correctSet = new Set(existing ? JSON.parse(existing.correct_answers) : []);
+            const wrongSet = new Set(existing ? JSON.parse(existing.wrong_answers) : []);
 
-        // Додаємо точні відповіді та прибираємо їх зі списку помилкових
-        (item.correct_answers || []).forEach((c) => {
-            if (c) {
-                correctSet.add(c);
-                wrongSet.delete(c);
-            }
-        });
+            // Додаємо точні відповіді та прибираємо їх зі списку помилкових
+            (item.correct_answers || []).forEach((c) => {
+                if (c) {
+                    correctSet.add(c);
+                    wrongSet.delete(c);
+                }
+            });
 
-        // Додаємо неправильні варіанти (якщо їх немає серед правильних)
-        (item.wrong_answers || []).forEach((w) => {
-            if (w && !correctSet.has(w)) {
-                wrongSet.add(w);
-            }
-        });
+            // Додаємо неправильні варіанти (якщо їх немає серед правильних)
+            (item.wrong_answers || []).forEach((w) => {
+                if (w && !correctSet.has(w)) {
+                    wrongSet.add(w);
+                }
+            });
 
-        upsertStmt.run(
-            item.key,
-            item.qid || existing?.qid || null,
-            item.fingerprint || existing?.fingerprint || null,
-            item.type || existing?.type || 'unknown',
-            item.question || existing?.question || '',
-            JSON.stringify(item.media || (existing ? JSON.parse(existing.media) : [])),
-            JSON.stringify(item.answers || (existing ? JSON.parse(existing.answers) : [])),
-            JSON.stringify(Array.from(correctSet)),
-            JSON.stringify(Array.from(wrongSet)),
-            now
-        );
-        mergedCount++;
+            upsertStmt.run(
+                item.key,
+                item.qid || existing?.qid || null,
+                item.fingerprint || existing?.fingerprint || null,
+                item.type || existing?.type || 'unknown',
+                item.question || existing?.question || '',
+                JSON.stringify(item.media || (existing ? JSON.parse(existing.media) : [])),
+                JSON.stringify(item.answers || (existing ? JSON.parse(existing.answers) : [])),
+                JSON.stringify(Array.from(correctSet)),
+                JSON.stringify(Array.from(wrongSet)),
+                now
+            );
+            mergedCount++;
         }
         db.exec('COMMIT');
     } catch (err) {
