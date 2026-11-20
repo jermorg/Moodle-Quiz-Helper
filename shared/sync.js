@@ -69,8 +69,8 @@ export async function pushToServer(items) {
     const res = await fetch(`${config.serverUrl}/api/sync`, {
         method: 'POST',
         headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.token}`
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${config.token}`
         },
         body: JSON.stringify({ items })
     });
