@@ -20,7 +20,7 @@ fs.mkdirSync(dataDir, { recursive: true });
 
 const db = new DatabaseSync(path.join(dataDir, 'quiz.db'));
 
-// Ініціалізуємо таблицю питань
+// Ініціалізуємо таблиці питань та зв'язків тест -> питання
 db.exec(`
     CREATE TABLE IF NOT EXISTS questions (
         key TEXT PRIMARY KEY,
@@ -33,8 +33,42 @@ db.exec(`
         correct_answers TEXT,
         wrong_answers TEXT,
         updated_at INTEGER
-    )
+    );
+
+    CREATE TABLE IF NOT EXISTS test_questions (
+        test_id TEXT NOT NULL,
+        question_key TEXT NOT NULL,
+        PRIMARY KEY (test_id, question_key)
+    );
 `);
+
+const getTestsStatsStmt = db.prepare(`
+    SELECT 
+        tq.test_id,
+        COUNT(tq.question_key) AS total,
+        SUM(
+            CASE 
+                WHEN q.correct_answers IS NOT NULL AND q.correct_answers != '[]' 
+                THEN 1 
+                ELSE 0 
+            END
+        ) AS solved
+    FROM test_questions tq
+    LEFT JOIN questions q ON q.key = tq.question_key
+    GROUP BY tq.test_id
+`);
+
+function buildTestsMap() {
+    const rows = getTestsStatsStmt.all();
+    const testsMap = {};
+    for (const row of rows) {
+        testsMap[row.test_id] = {
+            total: Number(row.total) || 0,
+            solved: Number(row.solved) || 0
+        };
+    }
+    return testsMap;
+}
 
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
@@ -53,10 +87,15 @@ function authMiddleware(req, res, next) {
 // Перевірка з'єднання (для тестування підключення з розширення)
 app.get('/api/ping', authMiddleware, (req, res) => {
     const row = db.prepare('SELECT COUNT(*) as total FROM questions').get();
-    res.json({ status: 'ok', totalQuestions: row.total });
+    const testsRow = db.prepare('SELECT COUNT(DISTINCT test_id) as total FROM test_questions').get();
+    res.json({
+        status: 'ok',
+        totalQuestions: row.total,
+        totalTests: testsRow.total
+    });
 });
 
-// 1. Віддати актуальну базу клієнту (підтримує ?since=timestamp)
+// 1. Віддати актуальну базу клієнту (підтримує ?since=timestamp) + статистику по тестах
 app.get('/api/db', authMiddleware, (req, res) => {
     const since = Number(req.query.since) || 0;
     const rows = db.prepare('SELECT * FROM questions WHERE updated_at > ?').all(since);
@@ -76,15 +115,18 @@ app.get('/api/db', authMiddleware, (req, res) => {
 
     res.json({
         serverTime: Date.now(),
-        items: formatted
+        items: formatted,
+        tests: buildTestsMap()
     });
 });
 
 // 2. Прийняти нові питання від користувача і змерджити в SQLite
 app.post('/api/sync', authMiddleware, (req, res) => {
     const incoming = Array.isArray(req.body?.items) ? req.body.items : [];
+    const payloadTestId = req.body?.testId ? String(req.body.testId) : null;
+
     if (!incoming.length) {
-        return res.json({ status: 'ok', merged: 0 });
+        return res.json({ status: 'ok', merged: 0, tests: buildTestsMap() });
     }
 
     const selectStmt = db.prepare('SELECT * FROM questions WHERE key = ?');
@@ -95,6 +137,9 @@ app.post('/api/sync', authMiddleware, (req, res) => {
         correct_answers = excluded.correct_answers,
         wrong_answers = excluded.wrong_answers,
         updated_at = excluded.updated_at
+    `);
+    const insertTestLinkStmt = db.prepare(`
+        INSERT OR IGNORE INTO test_questions (test_id, question_key) VALUES (?, ?)
     `);
 
     const now = Date.now();
@@ -136,6 +181,13 @@ app.post('/api/sync', authMiddleware, (req, res) => {
                 JSON.stringify(Array.from(wrongSet)),
                 now
             );
+
+            // Прив'язуємо питання до ID тесту (cmid), якщо його передано
+            const linkTestId = item.testId ? String(item.testId) : payloadTestId;
+            if (linkTestId) {
+                insertTestLinkStmt.run(linkTestId, item.key);
+            }
+
             mergedCount++;
         }
         db.exec('COMMIT');
@@ -145,7 +197,12 @@ app.post('/api/sync', authMiddleware, (req, res) => {
     }
 
     const totalRow = db.prepare('SELECT COUNT(*) as total FROM questions').get();
-    res.json({ status: 'ok', merged: mergedCount, total: totalRow.total });
+    res.json({
+        status: 'ok',
+        merged: mergedCount,
+        total: totalRow.total,
+        tests: buildTestsMap()
+    });
 });
 
 app.listen(PORT, () => {
