@@ -7,26 +7,35 @@ export async function universalMoodleParser() {
     } = await import(chrome.runtime.getURL('shared/utils.js'));
 
     const $ = window.jQuery;
-
     const results = [];
 
-    // Шукаємо всі елементи з класом .que (обєкт, в якому лежить питання + відповіді)
     $('.que').each((_, blockEl) => {
         const $block = $(blockEl);
-        const $qtext = $block.find('.qtext');           // Текст питання
-        const questionText = clean($qtext.text());      // Очищаємо його від лишнього 
+        const $qtext = $block.find('.qtext');
         const qMedia = extractMediaSignatures($qtext);
-
-        if (!questionText && !qMedia.length) return;
 
         const qid = extractQuestionId($block);
         const knownTypes = ['multichoice', 'truefalse', 'shortanswer', 'numerical', 'match', 'gapselect', 'ddwtos'];
         const qType = knownTypes.find(t => $block.hasClass(t)) || 'unknown';
 
+        // Для gapselect замінюємо <select> у копії тексту на [1], [2], щоб текст питання не склеювався з варіантами
+        let questionText = '';
+        if (qType === 'gapselect') {
+            const $qtextClone = $qtext.clone();
+            $qtextClone.find('span.control').each((idx, el) => {
+                $(el).replaceWith(` [${idx + 1}] `);
+            });
+            questionText = clean($qtextClone.text());
+        } else {
+            questionText = clean($qtext.text());
+        }
+
+        if (!questionText && !qMedia.length) return;
+
         const answers = [];
         const selectedAnswers = [];
 
-        // 1. Radio та Checkbox
+        // 1. Radio та Checkbox (multichoice / truefalse)
         $block.find('.answer > div, .answer tr').each((_, rowEl) => {
             const $row = $(rowEl);
             const $input = $row.find('input[type="radio"], input[type="checkbox"]');
@@ -47,18 +56,36 @@ export async function universalMoodleParser() {
         });
 
         // 2. Текстові поля (shortanswer / numerical)
-        if (!answers.length) {
+        if (!answers.length && qType !== 'gapselect') {
             const textVal = clean($block.find('.answer input[type="text"]').val());
             if (textVal) selectedAnswers.push(textVal);
         }
 
-        // 3. Випадаючі списки (match / gapselect)
-        $block.find('.answer select').each((_, selEl) => {
+        // 3. Випадаючі списки: у .qtext (для gapselect) або в .answer (для match)
+        const $selects = qType === 'gapselect' ? $qtext.find('select') : $block.find('.answer select');
+        $selects.each((idx, selEl) => {
             const $sel = $(selEl);
+            const slotNum = idx + 1;
             const rowLabel = clean($sel.closest('tr').find('td.text').text());
+            const chosenVal = $sel.val();
             const chosenText = clean($sel.find('option:selected').text());
-            if (chosenText && $sel.val() !== '0' && $sel.val() !== '') {
-                selectedAnswers.push(rowLabel ? `${rowLabel} -> ${chosenText}` : chosenText);
+
+            if (qType === 'gapselect') {
+                $sel.find('option').each((_, optEl) => {
+                    const val = $(optEl).attr('value');
+                    const txt = clean($(optEl).text());
+                    if (val && val !== '0' && txt) {
+                        answers.push(`[${slotNum}] ${txt}`);
+                    }
+                });
+            }
+
+            if (chosenText && chosenVal !== '0' && chosenVal !== '') {
+                if (qType === 'gapselect') {
+                    selectedAnswers.push(`[${slotNum}] ${chosenText}`);
+                } else {
+                    selectedAnswers.push(rowLabel ? `${rowLabel} -> ${chosenText}` : chosenText);
+                }
             }
         });
 
@@ -75,15 +102,21 @@ export async function universalMoodleParser() {
         }
 
         const feedbackText = clean($block.find('.specificfeedback').text()).toLowerCase();
-        const gradeMatch = clean($block.find('.grade').text()).match(/([\d,.]+)\s*з\s*([\d,.]+)/);
-        const isFullScore = gradeMatch && parseFloat(gradeMatch[1].replace(',', '.')) >= parseFloat(gradeMatch[2].replace(',', '.'));
+        const gradeMatch = clean($block.find('.grade').text()).match(/([\d,.]+)\s*з\s*([\d,.]+)/i);
+        const earnedScore = gradeMatch ? parseFloat(gradeMatch[1].replace(',', '.')) : null;
+        const maxScore = gradeMatch ? parseFloat(gradeMatch[2].replace(',', '.')) : null;
+
+        const isFullScore = earnedScore !== null && maxScore !== null && maxScore > 0 && earnedScore >= maxScore;
+        const isZeroScore = earnedScore !== null && earnedScore === 0;
+        const isPartial = $block.hasClass('partiallycorrect') || feedbackText.includes('частково');
 
         const isCorrect = $block.hasClass('correct') ||
             isFullScore ||
-            (feedbackText.includes('правильна') && !feedbackText.includes('неправильна'));
+            (!isPartial && feedbackText.includes('правильна') && !feedbackText.includes('неправильна'));
 
         const isWrong = $block.hasClass('incorrect') ||
-        feedbackText.includes('неправильна');
+            isZeroScore ||
+            feedbackText.includes('неправильна');
 
         if (isCorrect && selectedAnswers.length && !correctAnswers.length) {
             correctAnswers = [...selectedAnswers];

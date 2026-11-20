@@ -107,37 +107,69 @@
         .appendTo($infoBox);
     }
 
+    // Підсвітка відповідей
     async function runBackgroundHighlight() {
         clearHighlights();
+        $('.que.gapselect select').css({ border: '', backgroundColor: '' });
 
         const blocks = $('.que').get();
         for (const blockEl of blocks) {
             const $block = $(blockEl);
             const $qtext = $block.find('.qtext');
-            const questionText = clean($qtext.text());
             const qMedia = extractMediaSignatures($qtext);
             const qid = extractQuestionId($block);
+            const isGapSelect = $block.hasClass('gapselect');
+
+            // 1. Формуємо текст питання ідентично до parser.js
+            let questionText = '';
+            if (isGapSelect) {
+                const $qtextClone = $qtext.clone();
+                $qtextClone.find('span.control').each((idx, el) => {
+                    $(el).replaceWith(` [${idx + 1}] `);
+                });
+                questionText = clean($qtextClone.text());
+            } else {
+                questionText = clean($qtext.text());
+            }
+
+            if (!questionText && !qMedia.length) continue;
 
             const rowItems = [];
+            const currentOptions = [];
 
-            $block.find('.answer > div, .answer tr').each((_, rowEl) => {
-                const $row = $(rowEl);
-                if (!$row.find('input[type="radio"], input[type="checkbox"]').length) return;
+            if (isGapSelect) {
+                // Збираємо всі доступні варіанти для кожного <select> у форматі "[1] варіант"
+                $qtext.find('select').each((idx, selEl) => {
+                    const slotNum = idx + 1;
+                    $(selEl).find('option').each((_, optEl) => {
+                        const val = $(optEl).attr('value');
+                        const txt = clean($(optEl).text());
+                        if (val && val !== '0' && txt) {
+                            currentOptions.push(`[${slotNum}] ${txt}`);
+                        }
+                    });
+                });
+            } else {
+                // Звичайні варіанти (radio / checkbox)
+                $block.find('.answer > div, .answer tr').each((_, rowEl) => {
+                    const $row = $(rowEl);
+                    if (!$row.find('input[type="radio"], input[type="checkbox"]').length) return;
 
-                const $textEl = $row.find('.flex-fill').length
-                    ? $row.find('.flex-fill')
-                    : ($row.find('label').length ? $row.find('label') : $row);
+                    const $textEl = $row.find('.flex-fill').length
+                        ? $row.find('.flex-fill')
+                        : ($row.find('label').length ? $row.find('label') : $row);
 
-                const rawText = clean($textEl.text()).replace(/^([0-9]+|[a-zа-яіїєґ])[.)]\s*/i, '');
-                const ansMedia = extractMediaSignatures($row);
-                const fullOption = [rawText, ...ansMedia.map(m => `[img:${m}]`)].filter(Boolean).join(' ');
+                    const rawText = clean($textEl.text()).replace(/^([0-9]+|[a-zа-яіїєґ])[.)]\s*/i, '');
+                    const ansMedia = extractMediaSignatures($row);
+                    const fullOption = [rawText, ...ansMedia.map(m => `[img:${m}]`)].filter(Boolean).join(' ');
 
-                if (fullOption) {
-                    rowItems.push({ $row, optionText: fullOption });
-                }
-            });
+                    if (fullOption) {
+                        rowItems.push({ $row, optionText: fullOption });
+                        currentOptions.push(fullOption);
+                    }
+                });
+            }
 
-            const currentOptions = rowItems.map(i => i.optionText);
             const fingerprint = makeHash(`${questionText}::${qMedia.join(',')}::${[...currentOptions].sort().join('|')}`);
 
             const entry = await findQuestionEntry(qid, fingerprint);
@@ -147,7 +179,8 @@
             let deducedCorrects = Array.isArray(entry.correct_answers) ? [...entry.correct_answers] : [];
             let isDeduced = false;
 
-            if (!deducedCorrects.length && currentOptions.length > 1) {
+            // Метод виключення працює тільки для звичайних питань з одним правильним варіантом
+            if (!isGapSelect && !deducedCorrects.length && currentOptions.length > 1) {
                 const remaining = currentOptions.filter(opt => !wrongList.includes(opt));
                 if (remaining.length === 1) {
                     deducedCorrects = [remaining[0]];
@@ -159,6 +192,41 @@
 
             renderHeaderStatus($block, deducedCorrects.length > 0, isDeduced, wrongList.length, currentOptions.length);
 
+            // Підсвічування для gapselect
+            if (isGapSelect) {
+                if (deducedCorrects.length) {
+                    $qtext.find('select').each((idx, selEl) => {
+                        const prefix = `[${idx + 1}] `;
+                        const match = deducedCorrects.find(c => c.startsWith(prefix));
+                        if (match) {
+                            $(selEl).css({ border: '2px solid #28a745', backgroundColor: '#d4edda' });
+                        }
+                    });
+                }
+
+                const $targetContainer = $block.find('.formulation').length ? $block.find('.formulation') : $qtext;
+                const hintText = deducedCorrects.length
+                    ? `Правильні пропуски: ${deducedCorrects.join(' | ')}`
+                    : `Неправильні спроби: ${wrongList.join(' | ')}`;
+
+                $('<div>')
+                    .addClass('moodle-helper-text-hint')
+                    .text(hintText)
+                    .css({
+                        marginTop: '10px',
+                        padding: '8px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        background: deducedCorrects.length ? '#d4edda' : '#f8d7da',
+                        border: `1px solid ${deducedCorrects.length ? '#28a745' : '#dc3545'}`,
+                        color: deducedCorrects.length ? '#155724' : '#721c24'
+                    })
+                    .appendTo($targetContainer);
+
+                continue;
+            }
+
+            // Підсвічування для звичайних питань (radio / checkbox)
             $.each(rowItems, (_, { $row, optionText }) => {
                 if (deducedCorrects.includes(optionText)) {
                     paintRow($row, '#d4edda', '#28a745', isDeduced ? 'Правильно (виключенням)' : 'Правильно');
@@ -167,26 +235,27 @@
                 }
             });
 
+            // Текстова підказка для shortanswer / numerical / match
             if (!rowItems.length && (deducedCorrects.length || wrongList.length)) {
-                const $answerBlock = $block.find('.answer');
+                const $answerBlock = $block.find('.answer').length ? $block.find('.answer') : $block.find('.formulation');
                 if ($answerBlock.length) {
-                const hintText = deducedCorrects.length
-                    ? `Правильна відповідь: ${deducedCorrects.join(' | ')}`
-                    : `Неправильні спроби: ${wrongList.join(' | ')}`;
+                    const hintText = deducedCorrects.length
+                        ? `Правильна відповідь: ${deducedCorrects.join(' | ')}`
+                        : `Неправильні спроби: ${wrongList.join(' | ')}`;
 
-                $('<div>')
-                    .addClass('moodle-helper-text-hint')
-                    .text(hintText)
-                    .css({
-                        marginTop: '8px',
-                        padding: '8px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        background: '#d4edda',
-                        border: '1px solid #28a745',
-                        color: '#155724'
-                    })
-                    .appendTo($answerBlock);
+                    $('<div>')
+                        .addClass('moodle-helper-text-hint')
+                        .text(hintText)
+                        .css({
+                            marginTop: '8px',
+                            padding: '8px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            background: deducedCorrects.length ? '#d4edda' : '#f8d7da',
+                            border: `1px solid ${deducedCorrects.length ? '#28a745' : '#dc3545'}`,
+                            color: deducedCorrects.length ? '#155724' : '#721c24'
+                        })
+                        .appendTo($answerBlock);
                 }
             }
         }
