@@ -14,13 +14,11 @@ if (!API_TOKEN) {
     process.exit(1);
 }
 
-// Створюємо папку data для збереження файлу SQLite бази
 const dataDir = path.join(__dirname, 'data');
 fs.mkdirSync(dataDir, { recursive: true });
 
 const db = new DatabaseSync(path.join(dataDir, 'quiz.db'));
 
-// Ініціалізуємо таблиці питань та зв'язків тест -> питання
 db.exec(`
     CREATE TABLE IF NOT EXISTS questions (
         key TEXT PRIMARY KEY,
@@ -73,7 +71,6 @@ function buildTestsMap() {
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 
-// Middleware перевірки Bearer-токена
 function authMiddleware(req, res, next) {
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
@@ -84,7 +81,6 @@ function authMiddleware(req, res, next) {
     next();
 }
 
-// Перевірка з'єднання (для тестування підключення з розширення)
 app.get('/api/ping', authMiddleware, (req, res) => {
     const row = db.prepare('SELECT COUNT(*) as total FROM questions').get();
     const testsRow = db.prepare('SELECT COUNT(DISTINCT test_id) as total FROM test_questions').get();
@@ -95,7 +91,6 @@ app.get('/api/ping', authMiddleware, (req, res) => {
     });
 });
 
-// 1. Віддати актуальну базу клієнту (підтримує ?since=timestamp) + статистику по тестах
 app.get('/api/db', authMiddleware, (req, res) => {
     const since = Number(req.query.since) || 0;
     const rows = db.prepare('SELECT * FROM questions WHERE updated_at > ?').all(since);
@@ -120,7 +115,6 @@ app.get('/api/db', authMiddleware, (req, res) => {
     });
 });
 
-// 2. Прийняти нові питання від користувача і змерджити в SQLite
 app.post('/api/sync', authMiddleware, (req, res) => {
     const incoming = Array.isArray(req.body?.items) ? req.body.items : [];
     const payloadTestId = req.body?.testId ? String(req.body.testId) : null;
@@ -154,7 +148,6 @@ app.post('/api/sync', authMiddleware, (req, res) => {
             const correctSet = new Set(existing ? JSON.parse(existing.correct_answers) : []);
             const wrongSet = new Set(existing ? JSON.parse(existing.wrong_answers) : []);
 
-            // Додаємо точні відповіді та прибираємо їх зі списку помилкових
             (item.correct_answers || []).forEach((c) => {
                 if (c) {
                     correctSet.add(c);
@@ -162,7 +155,6 @@ app.post('/api/sync', authMiddleware, (req, res) => {
                 }
             });
 
-            // Додаємо неправильні варіанти (якщо їх немає серед правильних)
             (item.wrong_answers || []).forEach((w) => {
                 if (w && !correctSet.has(w)) {
                     wrongSet.add(w);
@@ -182,7 +174,6 @@ app.post('/api/sync', authMiddleware, (req, res) => {
                 now
             );
 
-            // Прив'язуємо питання до ID тесту (cmid), якщо його передано
             const linkTestId = item.testId ? String(item.testId) : payloadTestId;
             if (linkTestId) {
                 insertTestLinkStmt.run(linkTestId, item.key);
