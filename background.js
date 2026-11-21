@@ -47,37 +47,38 @@
 
     function clearHighlights() {
         $('.moodle-helper-mark')
-        .css({ backgroundColor: '', border: '', borderRadius: '', padding: '', marginBottom: '' })
-        .removeClass('moodle-helper-mark');
+            .css({ backgroundColor: '', border: '', borderRadius: '', padding: '', marginBottom: '' })
+            .removeClass('moodle-helper-mark');
 
         $('.moodle-helper-badge, .moodle-helper-header-status, .moodle-helper-text-hint').remove();
+        $('.que.gapselect select').css({ border: '', backgroundColor: '' });
     }
 
     function paintRow($row, bgColor, borderColor, labelText) {
         $row
-        .addClass('moodle-helper-mark')
-        .css({
-            backgroundColor: bgColor,
-            border: `2px solid ${borderColor}`,
-            borderRadius: '6px',
-            padding: '6px 10px',
-            marginBottom: '6px'
-        });
+            .addClass('moodle-helper-mark')
+            .css({
+                backgroundColor: bgColor,
+                border: `2px solid ${borderColor}`,
+                borderRadius: '6px',
+                padding: '6px 10px',
+                marginBottom: '6px'
+            });
 
         const $badge = $('<span>')
-        .addClass('moodle-helper-badge')
-        .text(labelText)
-        .css({
-            display: 'inline-block',
-            marginLeft: '8px',
-            padding: '2px 6px',
-            fontSize: '11px',
-            fontWeight: 'bold',
-            color: '#fff',
-            background: borderColor,
-            borderRadius: '4px',
-            verticalAlign: 'middle'
-        });
+            .addClass('moodle-helper-badge')
+            .text(labelText)
+            .css({
+                display: 'inline-block',
+                marginLeft: '8px',
+                padding: '2px 6px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                color: '#fff',
+                background: borderColor,
+                borderRadius: '4px',
+                verticalAlign: 'middle'
+            });
 
         const $target = $row.find('.d-flex').length ? $row.find('.d-flex').first() : $row;
         $target.append($badge);
@@ -92,25 +93,84 @@
             : `База: виключено ${wrongCount} з ${totalOptions}`;
 
         $('<div>')
-        .addClass('moodle-helper-header-status')
-        .text(statusText)
-        .css({
-            marginTop: '8px',
-            padding: '4px 6px',
-            fontSize: '11px',
-            fontWeight: '600',
-            borderRadius: '4px',
-            background: hasCorrect ? '#d4edda' : '#fff3cd',
-            color: hasCorrect ? '#155724' : '#856404',
-            border: `1px solid ${hasCorrect ? '#c3e6cb' : '#ffeeba'}`
-        })
-        .appendTo($infoBox);
+            .addClass('moodle-helper-header-status')
+            .text(statusText)
+            .css({
+                marginTop: '8px',
+                padding: '4px 6px',
+                fontSize: '11px',
+                fontWeight: '600',
+                borderRadius: '4px',
+                background: hasCorrect ? '#d4edda' : '#fff3cd',
+                color: hasCorrect ? '#155724' : '#856404',
+                border: `1px solid ${hasCorrect ? '#c3e6cb' : '#ffeeba'}`
+            })
+            .appendTo($infoBox);
     }
 
-    // Підсвітка відповідей
+    async function highlightCourseTests() {
+        const path = window.location.pathname;
+        if (path.includes('/mod/quiz/attempt.php') || path.includes('/mod/quiz/review.php')) {
+            return;
+        }
+
+        const { testsStats = {} } = await chrome.storage.local.get('testsStats');
+        if (!Object.keys(testsStats).length) return;
+
+        $('ul[data-for="cmlist"] li.activity.modtype_quiz, li.activity.quiz').each((_, liEl) => {
+            const $li = $(liEl);
+            if ($li.find('.moodle-helper-test-badge').length) return;
+
+            const testId = String(
+                $li.attr('data-id') ||
+                ($li.attr('id') || '').replace('module-', '') ||
+                ''
+            );
+
+            if (!testId || !testsStats[testId] || testsStats[testId].total === 0) return;
+
+            const stats = testsStats[testId];
+            const hasSolved = stats.solved > 0;
+            const badgeText = hasSolved
+                ? `У базі: ${stats.solved} правельних з ${stats.total}`
+                : `У базі: ${stats.total} (без ✓)`;
+
+            const $card = $li.find('.activity-item[data-region="activity-card"]').first();
+            if ($card.length) {
+                $card.css({
+                    borderLeft: `4px solid ${hasSolved ? '#28a745' : '#ffc107'}`,
+                    backgroundColor: hasSolved ? 'rgba(40, 167, 69, 0.07)' : 'rgba(255, 193, 7, 0.09)'
+                });
+            }
+
+            const $badge = $('<span>')
+                .addClass('moodle-helper-test-badge')
+                .text(badgeText)
+                .css({
+                    display: 'inline-block',
+                    marginLeft: '8px',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    lineHeight: '1.3',
+                    verticalAlign: 'middle',
+                    backgroundColor: hasSolved ? '#d4edda' : '#fff3cd',
+                    color: hasSolved ? '#155724' : '#856404',
+                    border: `1px solid ${hasSolved ? '#28a745' : '#ffc107'}`
+                });
+
+            const $instanceName = $li.find('.activityname .instancename').first();
+            if ($instanceName.length) {
+                $instanceName.after($badge);
+            } else {
+                $li.find('.activityname').first().append($badge);
+            }
+        });
+    }
+
     async function runBackgroundHighlight() {
         clearHighlights();
-        $('.que.gapselect select').css({ border: '', backgroundColor: '' });
 
         const blocks = $('.que').get();
         for (const blockEl of blocks) {
@@ -120,7 +180,6 @@
             const qid = extractQuestionId($block);
             const isGapSelect = $block.hasClass('gapselect');
 
-            // 1. Формуємо текст питання ідентично до parser.js
             let questionText = '';
             if (isGapSelect) {
                 const $qtextClone = $qtext.clone();
@@ -138,7 +197,6 @@
             const currentOptions = [];
 
             if (isGapSelect) {
-                // Збираємо всі доступні варіанти для кожного <select> у форматі "[1] варіант"
                 $qtext.find('select').each((idx, selEl) => {
                     const slotNum = idx + 1;
                     $(selEl).find('option').each((_, optEl) => {
@@ -150,7 +208,6 @@
                     });
                 });
             } else {
-                // Звичайні варіанти (radio / checkbox)
                 $block.find('.answer > div, .answer tr').each((_, rowEl) => {
                     const $row = $(rowEl);
                     if (!$row.find('input[type="radio"], input[type="checkbox"]').length) return;
@@ -179,7 +236,6 @@
             let deducedCorrects = Array.isArray(entry.correct_answers) ? [...entry.correct_answers] : [];
             let isDeduced = false;
 
-            // Метод виключення працює тільки для звичайних питань з одним правильним варіантом
             if (!isGapSelect && !deducedCorrects.length && currentOptions.length > 1) {
                 const remaining = currentOptions.filter(opt => !wrongList.includes(opt));
                 if (remaining.length === 1) {
@@ -192,7 +248,6 @@
 
             renderHeaderStatus($block, deducedCorrects.length > 0, isDeduced, wrongList.length, currentOptions.length);
 
-            // Підсвічування для gapselect
             if (isGapSelect) {
                 if (deducedCorrects.length) {
                     $qtext.find('select').each((idx, selEl) => {
@@ -226,7 +281,6 @@
                 continue;
             }
 
-            // Підсвічування для звичайних питань (radio / checkbox)
             $.each(rowItems, (_, { $row, optionText }) => {
                 if (deducedCorrects.includes(optionText)) {
                     paintRow($row, '#d4edda', '#28a745', isDeduced ? 'Правильно (виключенням)' : 'Правильно');
@@ -235,7 +289,6 @@
                 }
             });
 
-            // Текстова підказка для shortanswer / numerical / match
             if (!rowItems.length && (deducedCorrects.length || wrongList.length)) {
                 const $answerBlock = $block.find('.answer').length ? $block.find('.answer') : $block.find('.formulation');
                 if ($answerBlock.length) {
@@ -261,10 +314,23 @@
         }
     }
 
-    // Головний цикл роботи на сторінці
     $(async function () {
-        // 1. Якщо це сторінка результатів (review.php) — автоматично парсимо та відправляємо на сервер
-        if (window.location.pathname.includes('/mod/quiz/review.php')) {
+        const path = window.location.pathname;
+
+        await highlightCourseTests();
+
+        // Підстраховка для секцій курсу, які Moodle підвантажує динамічно
+        const regionMain = document.querySelector('#region-main');
+        if (regionMain && !path.includes('/mod/quiz/')) {
+            let timer = null;
+            new MutationObserver(() => {
+                clearTimeout(timer);
+                timer = setTimeout(highlightCourseTests, 200);
+            }).observe(regionMain, { childList: true, subtree: true });
+        }
+
+        // Якщо ми на сторінці огляду результатів (review.php) — зберігаємо питання і прив'язуємо до тесту
+        if (path.includes('/mod/quiz/review.php')) {
             try {
                 const scraped = await universalMoodleParser();
                 if (scraped.length > 0) {
@@ -280,15 +346,18 @@
             }
         }
 
-        // 2. Підтягуємо свіжі питання з сервера (якщо підключений) і підсвічуємо
         await pullFromServer().catch(e => console.warn('Sync pull error:', e));
         await runBackgroundHighlight();
+        await highlightCourseTests();
     });
 
-    // Реакція на зміни бази з popup
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'local' && changes.quizDatabase) {
             runBackgroundHighlight();
+        }
+        if (area === 'local' && changes.testsStats) {
+            $('.moodle-helper-test-badge').remove();
+            highlightCourseTests();
         }
     });
 })();

@@ -20,7 +20,10 @@
     "content_scripts": [
         {
             "matches": [
-                "https://dist.nupp.edu.ua/mod/quiz/*"
+                "https://dist.nupp.edu.ua/*"
+            ],
+            "css": [
+                "styles/background.css"
             ],
             "js": [
                 "libs/jquery.min.js",
