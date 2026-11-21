@@ -1,355 +1,210 @@
 :root {
-    --bg-canvas: #f2f2f7;
-    --bg-card: #ffffff;
-    --bg-input: #f7f7fa;
-    --bg-segment: #e5e5ea;
-    --text-primary: #010101;
-    --text-secondary: #636366;
-    --text-muted: #8e8e93;
-    --border-subtle: rgba(0, 0, 0, 0.06);
-
-    /* Фірмова палітра One UI */
-    --oneui-blue: #0381fe;
-    --oneui-blue-hover: #006ee6;
-    --oneui-green: #00a86b;
-    --oneui-green-hover: #008f5b;
-    --oneui-red: #e53935;
-    --oneui-red-soft: rgba(229, 57, 53, 0.12);
-    --oneui-neutral-btn: #eef0f4;
-    --oneui-neutral-hover: #e2e5ec;
-
-    --radius-card: 22px;
-    --radius-input: 16px;
-    --radius-pill: 999px;
-    --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.03);
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --success: #16a34a;
+  --success-hover: #15803d;
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
 }
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg-canvas: #010101;
-        --bg-card: #17171a;
-        --bg-input: #222226;
-        --bg-segment: #252529;
-        --text-primary: #fafafa;
-        --text-secondary: #a1a1a6;
-        --text-muted: #7c7c82;
-        --border-subtle: rgba(255, 255, 255, 0.08);
-
-        --oneui-blue: #3b9eff;
-        --oneui-blue-hover: #5cb0ff;
-        --oneui-green: #1ec987;
-        --oneui-green-hover: #38d699;
-        --oneui-red: #ff5c58;
-        --oneui-red-soft: rgba(255, 92, 88, 0.16);
-        --oneui-neutral-btn: #25252a;
-        --oneui-neutral-hover: #303036;
-
-        --shadow-card: none;
-    }
-}
-
 * {
-    box-sizing: border-box;
-    -webkit-font-smoothing: antialiased;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
-
 body {
-    width: 390px;
-    margin: 0;
-    padding: 14px;
-    background-color: var(--bg-canvas);
-    color: var(--text-primary);
-    font-family: "One UI Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 13px;
+  width: 380px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
 }
-
-/* Шапка */
-.app-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 6px 12px;
+header {
+  background: var(--card);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-
-.app-title-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+header h1 {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
 }
-
-.app-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--oneui-blue);
-    box-shadow: 0 0 0 3px rgba(3, 129, 254, 0.18);
+.conn-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
 }
-
-.app-title {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: -0.3px;
+.conn-pill.online {
+  background: #dcfce7;
+  color: #166534;
 }
-
-.app-badge {
-    padding: 3px 9px;
-    border-radius: var(--radius-pill);
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
-    color: var(--text-secondary);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.4px;
-}
-
-/* Сегментовані вкладки One UI */
 .tabs {
-    display: flex;
-    gap: 4px;
-    padding: 4px;
-    margin-bottom: 12px;
-    background: var(--bg-segment);
-    border-radius: var(--radius-pill);
+  display: flex;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 0 10px;
 }
-
 .tab {
-    flex: 1;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    padding: 8px 12px;
-    border-radius: var(--radius-pill);
-    font-family: inherit;
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  flex: 1;
+  text-align: center;
+  padding: 9px 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
 }
-
 .tab:hover {
-    color: var(--text-primary);
+  color: var(--text);
 }
-
 .tab.active {
-    background: var(--bg-card);
-    color: var(--oneui-blue);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+  color: var(--primary);
+  border-bottom-color: var(--primary);
 }
-
-/* Панелі та картки */
 .panel {
-    display: none;
-    animation: fadeIn 0.18s ease;
+  display: none;
+  padding: 14px;
 }
-
 .panel.active {
-    display: block;
+  display: block;
 }
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(3px); }
-    to { opacity: 1; transform: translateY(0); }
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
 }
-
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+.stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
 .card {
-    background: var(--bg-card);
-    border-radius: var(--radius-card);
-    padding: 14px;
-    border: 1px solid var(--border-subtle);
-    box-shadow: var(--shadow-card);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
 }
-
-.section-label {
-    display: block;
-    font-size: 11.5px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin: 0 0 8px 4px;
+.field {
+  margin-bottom: 10px;
 }
-
-/* Поле вводу JSON */
-textarea {
-    width: 100%;
-    height: 145px;
-    padding: 12px;
-    margin-bottom: 12px;
-    background: var(--bg-input);
-    color: var(--text-primary);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-input);
-    font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
-    font-size: 11.5px;
-    line-height: 1.45;
-    resize: vertical;
-    outline: none;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+.field:last-child {
+  margin-bottom: 0;
 }
-
-textarea::placeholder {
-    color: var(--text-muted);
+label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
-
-textarea:focus {
-    border-color: var(--oneui-blue);
-    box-shadow: 0 0 0 3px rgba(3, 129, 254, 0.15);
+input[type="text"],
+input[type="password"] {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  background: #fff;
 }
-
-/* Кнопки-пігулки */
-.btn-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+input:focus {
+  border-color: var(--primary);
 }
-
 .btn-row {
-    display: flex;
-    gap: 8px;
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
 }
-
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    width: 100%;
-    height: 40px;
-    padding: 0 16px;
-    border: none;
-    border-radius: var(--radius-pill);
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.12s ease, background-color 0.18s ease, opacity 0.18s ease;
+button {
+  flex: 1;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  background: var(--primary);
+  transition: background 0.15s, opacity 0.15s;
 }
-
-.btn-row .btn {
-    flex: 1;
-    width: auto;
+button:hover {
+  background: var(--primary-hover);
 }
-
-.btn:active {
-    transform: scale(0.97);
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
-
-.btn svg {
-    width: 15px;
-    height: 15px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2.2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    flex-shrink: 0;
+button.green {
+  background: var(--success);
 }
-
-.btn-primary {
-    background: var(--oneui-blue);
-    color: #ffffff;
+button.green:hover {
+  background: var(--success-hover);
 }
-
-.btn-primary:hover {
-    background: var(--oneui-blue-hover);
+button.red {
+  background: var(--danger);
 }
-
-.btn-primary.green,
-.btn-success {
-    background: var(--oneui-green);
-    color: #ffffff;
+button.red:hover {
+  background: var(--danger-hover);
 }
-
-.btn-primary.green:hover,
-.btn-success:hover {
-    background: var(--oneui-green-hover);
+button.outline {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border);
 }
-
-.btn-secondary {
-    background: var(--oneui-neutral-btn);
-    color: var(--text-primary);
+button.outline:hover {
+  background: #f1f5f9;
 }
-
-.btn-secondary:hover {
-    background: var(--oneui-neutral-hover);
+.status-box {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  background: #f1f5f9;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-top: 8px;
 }
-
-.btn-danger {
-    background: var(--oneui-red-soft);
-    color: var(--oneui-red);
+.status-box b {
+  color: var(--text);
 }
-
-.btn-danger:hover {
-    background: var(--oneui-red);
-    color: #ffffff;
-}
-
-/* Блок статусу */
-.status-card {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    margin-top: 10px;
-    padding: 12px 14px;
-    background: var(--bg-card);
-    border-radius: 18px;
-    border: 1px solid var(--border-subtle);
-    box-shadow: var(--shadow-card);
-}
-
-.status-indicator {
-    width: 8px;
-    height: 8px;
-    margin-top: 4px;
-    border-radius: 50%;
-    background: var(--oneui-green);
-    flex-shrink: 0;
-}
-
-.status-inline {
-    margin-top: 10px;
-    padding: 8px 12px;
-    background: var(--bg-input);
-    border-radius: 14px;
-}
-
-.status {
-    font-size: 12px;
-    color: var(--text-secondary);
-    line-height: 1.45;
-}
-
-/* Вивід JSON парсера */
 pre {
-    margin: 10px 0 0;
-    max-height: 220px;
-    overflow-y: auto;
-    background: var(--bg-input);
-    color: var(--text-primary);
-    padding: 10px 12px;
-    border-radius: var(--radius-input);
-    border: 1px solid var(--border-subtle);
-    font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
-    font-size: 11px;
-    line-height: 1.45;
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-
-pre:empty {
-    display: none;
-}
-
-/* Акуратний скролбар */
-::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(128, 128, 128, 0.3);
-    border-radius: var(--radius-pill);
+  margin-top: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

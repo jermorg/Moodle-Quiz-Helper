@@ -1,185 +1,167 @@
 import {
-  getSyncConfig,
-  saveSyncConfig,
-  clearSyncConfig,
-  testServerConnection,
-  pullFromServer,
-  pushToServer
+    getSyncConfig,
+    saveSyncConfig,
+    clearSyncConfig,
+    testServerConnection,
+    pullFromServer,
+    pushToServer
 } from './shared/sync.js';
 
-import {
-  getDatabaseStats,
-  addQuestionsToDatabase,
-  exportDatabaseAsJson,
-  clearDatabase
-} from './database/db.js';
+let lastParsedItems = [];
 
-import { universalMoodleParser } from './parser/parser.js';
+function formatTime(ts) {
+    if (!ts) return 'ще не було';
+    return new Date(ts).toLocaleTimeString('uk-UA', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+}
+
+async function refreshDashboard() {
+    const config = await getSyncConfig();
+    const { quizDatabase = {}, testsStats = {} } = await chrome.storage.local.get([
+        'quizDatabase',
+        'testsStats'
+    ]);
+
+    const qCount = Object.keys(quizDatabase).length;
+    const tCount = Object.keys(testsStats).length;
+
+    $('#statQuestions').text(qCount);
+    $('#statTests').text(tCount);
+
+    const $pill = $('#connPill');
+    if (config?.serverUrl && config?.token) {
+        $('#serverUrl').val(config.serverUrl);
+        $('#apiToken').val(config.token);
+        $pill.text('Онлайн').addClass('online');
+        $('#forceSyncBtn, #disconnectBtn').prop('disabled', false);
+        $('#syncStatus').html(
+            `Підключено до <b>${config.serverUrl}</b><br>Остання синхронізація: <b>${formatTime(config.lastSync)}</b>`
+        );
+    } else {
+        $pill.text('Офлайн').removeClass('online');
+        $('#forceSyncBtn, #disconnectBtn').prop('disabled', true);
+        $('#syncStatus').text('Введіть адресу сервера та токен для автоматичної синхронізації відповідей.');
+    }
+}
 
 $(async function () {
-    const $connPill = $('#connPill');
-    const $serverUrl = $('#serverUrl');
-    const $apiToken = $('#apiToken');
-    const $syncStatus = $('#syncStatus');
-    const $dbStatus = $('#dbStatus');
-    const $parseStatus = $('#parseStatus');
-    const $parseOutput = $('#parseOutput');
-    const $copyBtn = $('#copyBtn');
-
     // Перемикання вкладок
     $('.tab').on('click', function () {
-        $('.tab, .panel').removeClass('active');
+        const target = $(this).data('target');
+        $('.tab').removeClass('active');
         $(this).addClass('active');
-        $(`#${$(this).data('target')}`).addClass('active');
+        $('.panel').removeClass('active');
+        $(`#${target}`).addClass('active');
     });
 
-    // Оновлення статусу локальної бази
-    async function refreshDbStatus() {
-        const { total, withCorrect, withWrongsOnly } = await getDatabaseStats();
-        if (total === 0) {
-        $dbStatus.text('Локальна база порожня.');
-        return;
-        }
-        $dbStatus.html(
-        `У локальній базі: <b>${total}</b> питань (точних: <b>${withCorrect}</b>, виключень: <b>${withWrongsOnly}</b>).`
-        );
-    }
+    await refreshDashboard();
 
-    // Ініціалізація при відкритті popup
-    const existingConfig = await getSyncConfig();
-    if (existingConfig?.serverUrl) {
-        $serverUrl.val(existingConfig.serverUrl);
-        $apiToken.val(existingConfig.token);
-        $connPill.addClass('online').text('Підключено');
-        $syncStatus.html(`Підключено до <b>${existingConfig.serverUrl}</b>. Автосинхронізація активна.`);
-    }
-    await refreshDbStatus();
-
-    // 1. Кнопка "Підключити і синхронізувати"
+    // Підключення і повне завантаження з сервера
     $('#connectBtn').on('click', async function () {
-        const url = $serverUrl.val().trim();
-        const token = $apiToken.val().trim();
+        const url = $('#serverUrl').val();
+        const token = $('#apiToken').val();
 
-        if (!url || !token) {
-            return $syncStatus.text('Помилка: заповніть обидва поля (URL і Token).');
+        if (!url.trim() || !token.trim()) {
+            $('#syncStatus').text('Заповніть адресу сервера та токен.');
+            return;
         }
 
-        const $btn = $(this).prop('disabled', true).text('Перевірка...');
+        const $btn = $(this).prop('disabled', true).text('Підключення...');
         try {
             const ping = await testServerConnection(url, token);
             await saveSyncConfig(url, token);
-            const pulled = await pullFromServer(true);
-
-            $connPill.addClass('online').text('Підключено');
-            $syncStatus.html(
-                `Успішно підключено! На сервері <b>${ping.totalQuestions}</b> питань. Завантажено в локальну базу: <b>${pulled}</b>.`
+            await pullFromServer(true);
+            await refreshDashboard();
+            $('#syncStatus').html(
+                `Успішно підключено! На сервері: <b>${ping.totalQuestions}</b> питань у <b>${ping.totalTests || 0}</b> тестах.`
             );
-            await refreshDbStatus();
         } catch (err) {
-            $connPill.removeClass('online').text('Помилка');
-            $syncStatus.text(`Не вдалося підключитися: ${err.message}`);
+            $('#syncStatus').html(`<span style="color:#dc2626">Помилка: ${err.message}</span>`);
         } finally {
             $btn.prop('disabled', false).text('Підключити і синхронізувати');
         }
     });
 
-    // 2. Примусове оновлення бази з сервера
+    // Примусове оновлення кешу з сервера
     $('#forceSyncBtn').on('click', async function () {
         const $btn = $(this).prop('disabled', true).text('Оновлення...');
         try {
-            const pulled = await pullFromServer(true);
-            if (pulled === null) {
-                $syncStatus.text('Спочатку підключіть сервер.');
-            } else {
-                $syncStatus.html(`Синхронізацію завершено. Отримано записів: <b>${pulled}</b>.`);
-                await refreshDbStatus();
-            }
+            const added = await pullFromServer(true);
+            await refreshDashboard();
+            $('#syncStatus').html(
+                `Базу оновлено з сервера (завантажено записів: <b>${added ?? 0}</b>).`
+            );
         } catch (err) {
-            $syncStatus.text(`Помилка синхронізації: ${err.message}`);
+            $('#syncStatus').html(`<span style="color:#dc2626">Помилка: ${err.message}</span>`);
         } finally {
-            $btn.prop('disabled', false).text('Оновити базу зараз');
+            $btn.prop('disabled', false).text('Оновити з сервера');
         }
     });
 
-    // 3. Відключення від сервера
-    $('#disconnectBtn').on('click', async () => {
+    // Вихід (очищення конфігурації та локального кешу)
+    $('#disconnectBtn').on('click', async function () {
         await clearSyncConfig();
-        $serverUrl.val('');
-        $apiToken.val('');
-        $connPill.removeClass('online').text('Офлайн');
-        $syncStatus.text('Налаштування сервера видалено. Розширення працює лише локально.');
+        await chrome.storage.local.remove(['quizDatabase', 'testsStats']);
+        $('#serverUrl').val('');
+        $('#apiToken').val('');
+        await refreshDashboard();
     });
 
-    // 4. Ручний імпорт JSON
-    $('#saveJsonBtn').on('click', async () => {
-        const raw = $('#jsonInput').val().trim();
-        if (!raw) return $dbStatus.text('Поле порожнє. Вставте JSON.');
-
+    // Ручний парсинг активної вкладки
+    $('#parseBtn').on('click', async function () {
+        const $btn = $(this).prop('disabled', true).text('Парсинг...');
         try {
-            const parsed = JSON.parse(raw);
-            const { total, addedCount, updatedCount } = await addQuestionsToDatabase(parsed);
-            $('#jsonInput').val('');
-            $dbStatus.html(`Додано: <b>${addedCount}</b>, оновлено: <b>${updatedCount}</b>. Всього: <b>${total}</b>.`);
-
-            // Якщо підключено сервер — одразу відправляємо туди додані питання
-            await pushToServer(Array.isArray(parsed) ? parsed : [parsed]).catch(() => {});
-        } catch (e) {
-            $dbStatus.text(`Помилка JSON: ${e.message}`);
-        }
-    });
-
-    // 5. Експорт бази
-    $('#exportBtn').on('click', async () => {
-        const json = await exportDatabaseAsJson();
-        await navigator.clipboard.writeText(json);
-        $dbStatus.text('Всю локальну базу скопійовано у буфер обміну!');
-    });
-
-    // 6. Очищення локальної бази
-    $('#clearBtn').on('click', async () => {
-        await clearDatabase();
-        await refreshDbStatus();
-    });
-
-    // 7. Ручний парсинг сторінки
-    $('#parseBtn').on('click', async () => {
-        try {
-            $parseStatus.text('Сканування сторінки...');
-            const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-
-            await chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                files: ['libs/jquery.min.js']
-            });
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (!tab?.id) throw new Error('Активну вкладку не знайдено');
 
             const [{ result }] = await chrome.scripting.executeScript({
                 target: { tabId: tab.id },
-                func: universalMoodleParser
+                func: async () => {
+                    const { universalMoodleParser } = await import(chrome.runtime.getURL('parser/parser.js'));
+                    return await universalMoodleParser();
+                }
             });
 
-            if (!result || !result.length) {
-                $parseStatus.text('Питань на сторінці не знайдено.');
-                $parseOutput.hide();
-                $copyBtn.hide();
-                return;
+            lastParsedItems = Array.isArray(result) ? result : [];
+            $('#parseStatus').html(`Знайдено питань на сторінці: <b>${lastParsedItems.length}</b>`);
+
+            if (lastParsedItems.length > 0) {
+                $('#parseOutput').text(JSON.stringify(lastParsedItems, null, 2)).show();
+                $('#pushParsedBtn, #copyBtn').show();
+            } else {
+                $('#parseOutput').hide();
+                $('#pushParsedBtn, #copyBtn').hide();
             }
-
-            // Автоматично зберігаємо локально і пушимо на сервер
-            await addQuestionsToDatabase(result);
-            const syncRes = await pushToServer(result).catch(() => null);
-            await refreshDbStatus();
-
-            const serverNote = syncRes ? ` Відправлено на сервер (всього там: ${syncRes.total}).` : '';
-            $parseStatus.text(`Зпарсено ${result.length} питань.${serverNote}`);
-            $parseOutput.text(JSON.stringify(result, null, 2)).show();
-            $copyBtn.show();
         } catch (err) {
-            $parseStatus.text(`Помилка: ${err.message}`);
+            $('#parseStatus').html(`<span style="color:#dc2626">Помилка: ${err.message}</span>`);
+        } finally {
+            $btn.prop('disabled', false).text('Зпарсити сторінку');
         }
     });
 
-    $copyBtn.on('click', async function () {
-        await navigator.clipboard.writeText($parseOutput.text());
+    // Відправка вручну зпарсеного на сервер
+    $('#pushParsedBtn').on('click', async function () {
+        if (!lastParsedItems.length) return;
+        const $btn = $(this).prop('disabled', true).text('Відправка...');
+        try {
+            const res = await pushToServer(lastParsedItems);
+            if (!res) throw new Error('Спершу підключіть сервер на першій вкладці');
+            await refreshDashboard();
+            $('#parseStatus').html(`Відправлено на сервер: <b>${res.merged}</b> питань.`);
+        } catch (err) {
+            $('#parseStatus').html(`<span style="color:#dc2626">Помилка: ${err.message}</span>`);
+        } finally {
+            $btn.prop('disabled', false).text('На сервер');
+        }
+    });
+
+    // Копіювання JSON у буфер
+    $('#copyBtn').on('click', async function () {
+        if (!lastParsedItems.length) return;
+        await navigator.clipboard.writeText(JSON.stringify(lastParsedItems, null, 2));
         const $btn = $(this).text('Скопійовано!');
         setTimeout(() => $btn.text('Копіювати'), 1500);
     });

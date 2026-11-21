@@ -1,6 +1,8 @@
 import { addQuestionsToDatabase } from '../database/db.js';
+import { extractTestId } from './utils.js';
 
 const SYNC_CONFIG_KEY = 'syncConfig';
+const TESTS_STORAGE_KEY = 'testsStats';
 
 export async function getSyncConfig() {
     const data = await chrome.storage.local.get([SYNC_CONFIG_KEY]);
@@ -19,10 +21,9 @@ export async function saveSyncConfig(serverUrl, token) {
 }
 
 export async function clearSyncConfig() {
-    await chrome.storage.local.remove(SYNC_CONFIG_KEY);
+    await chrome.storage.local.remove([SYNC_CONFIG_KEY, TESTS_STORAGE_KEY]);
 }
 
-// Перевірка з'єднання (/api/ping)
 export async function testServerConnection(serverUrl, token) {
     const cleanUrl = serverUrl.trim().replace(/\/+$/, '');
     const res = await fetch(`${cleanUrl}/api/ping`, {
@@ -35,7 +36,6 @@ export async function testServerConnection(serverUrl, token) {
     return await res.json();
 }
 
-// Завантажити свіжі питання з сервера (GET /api/db?since=...)
 export async function pullFromServer(forceFull = false) {
     const config = await getSyncConfig();
     if (!config?.serverUrl || !config?.token) return null;
@@ -46,25 +46,32 @@ export async function pullFromServer(forceFull = false) {
     });
 
     if (!res.ok) throw new Error(`Помилка завантаження: ${res.status}`);
-    const { serverTime, items } = await res.json();
+    const { serverTime, items, tests } = await res.json();
 
     if (Array.isArray(items) && items.length > 0) {
         await addQuestionsToDatabase(items);
     }
 
-    await chrome.storage.local.set({
+    const storageUpdate = {
         [SYNC_CONFIG_KEY]: { ...config, lastSync: serverTime }
-    });
+    };
+
+    if (tests && typeof tests === 'object') {
+        storageUpdate[TESTS_STORAGE_KEY] = tests;
+    }
+
+    await chrome.storage.local.set(storageUpdate);
 
     return items.length;
 }
 
-// Відправити нові питання на сервер (POST /api/sync)
 export async function pushToServer(items) {
     const config = await getSyncConfig();
     if (!config?.serverUrl || !config?.token || !Array.isArray(items) || !items.length) {
         return null;
     }
+
+    const testId = extractTestId();
 
     const res = await fetch(`${config.serverUrl}/api/sync`, {
         method: 'POST',
@@ -72,9 +79,15 @@ export async function pushToServer(items) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${config.token}`
         },
-        body: JSON.stringify({ items })
+        body: JSON.stringify({ testId, items })
     });
 
     if (!res.ok) throw new Error(`Помилка відправки: ${res.status}`);
-    return await res.json();
+    const data = await res.json();
+
+    if (data.tests && typeof data.tests === 'object') {
+        await chrome.storage.local.set({ [TESTS_STORAGE_KEY]: data.tests });
+    }
+
+    return data;
 }

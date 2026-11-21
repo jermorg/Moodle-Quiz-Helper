@@ -12,6 +12,29 @@ export const makeHash = (str) => {
     return (hash >>> 0).toString(16);
 };
 
+export function extractTestId() {
+    const urlParams = new URLSearchParams(window.location.search);
+
+    const cmid = urlParams.get('cmid');
+    if (cmid) return cmid;
+
+    if (window.location.pathname.includes('/mod/quiz/view.php')) {
+        const id = urlParams.get('id');
+        if (id) return id;
+    }
+
+    const quizLink = document.querySelector('a[href*="/mod/quiz/view.php?id="]');
+    if (quizLink) {
+        const match = quizLink.href.match(/[?&]id=(\d+)/);
+        if (match) return match[1];
+    }
+
+    const bodyMatch = document.body.className.match(/\bcmid-(\d+)\b/);
+    if (bodyMatch) return bodyMatch[1];
+
+    return null;
+}
+
 export const extractQuestionId = ($block) => {
     const flagData = $block.find('.questionflagpostdata').val() || '';
     const flagMatch = flagData.match(/qid=(\d+)/);
