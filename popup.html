@@ -1,69 +1,89 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="styles/popup.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moodle Quiz Helper</title>
+  <link rel="stylesheet" href="styles/popup.css">
 </head>
 <body>
-  <header>
-    <h1>Moodle Quiz Helper</h1>
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">M</div>
+      <div class="brand-text">
+        <h1>Moodle Helper</h1>
+        <span class="brand-sub">NUPP Quiz Assistant</span>
+      </div>
+    </div>
     <span id="connPill" class="conn-pill">Офлайн</span>
   </header>
 
-  <!-- <div class="tabs">
-    <div class="tab active" data-target="syncPanel">Сервер</div>
-    <div class="tab" data-target="parsePanel">Парсер</div>
-  </div> -->
+  <nav class="tabs" role="tablist">
+    <button type="button" class="tab active" data-target="syncPanel">Синхронізація</button>
+    <button type="button" class="tab" data-target="parsePanel">Парсер</button>
+  </nav>
 
   <!-- Вкладка 1: Синхронізація із сервером -->
-  <div id="syncPanel" class="panel active">
+  <main id="syncPanel" class="panel active">
     <div class="stats-grid">
       <div class="stat-card">
+        <div class="stat-top">
+          <span class="stat-dot blue"></span>
+          <span class="stat-label">Питань у базі</span>
+        </div>
         <div id="statQuestions" class="stat-value">0</div>
-        <div class="stat-label">Питань у базі</div>
       </div>
+
       <div class="stat-card">
+        <div class="stat-top">
+          <span class="stat-dot green"></span>
+          <span class="stat-label">Тестів прив'язано</span>
+        </div>
         <div id="statTests" class="stat-value">0</div>
-        <div class="stat-label">Тестів прив'язано</div>
       </div>
     </div>
 
-    <div class="card">
+    <section class="card form-card">
       <div class="field">
         <label for="serverUrl">Адреса сервера (API URL)</label>
-        <input type="text" id="serverUrl" placeholder="https://api.example.com">
+        <input type="text" id="serverUrl" placeholder="https://api.example.com" autocomplete="off">
       </div>
+      <div class="divider"></div>
       <div class="field">
         <label for="apiToken">Секретний токен (Token)</label>
         <input type="password" id="apiToken" placeholder="Введіть API_TOKEN...">
       </div>
-      <div class="btn-row">
-        <button id="connectBtn" class="green">Підключити і синхронізувати</button>
+      <div class="btn-row primary-row">
+        <button type="button" id="connectBtn" class="green">Підключити і синхронізувати</button>
       </div>
-    </div>
+    </section>
 
-    <div class="btn-row">
-      <button id="forceSyncBtn" class="outline">Оновити з сервера</button>
-      <button id="disconnectBtn" class="red" style="flex: 0.45;">Вийти</button>
+    <div class="btn-row secondary-row">
+      <button type="button" id="forceSyncBtn" class="outline">Оновити з сервера</button>
+      <button type="button" id="disconnectBtn" class="red" style="flex: 0.48;">Вийти</button>
     </div>
 
     <div id="syncStatus" class="status-box">
       Введіть адресу сервера та токен для автоматичної синхронізації відповідей.
     </div>
-  </div>
+  </main>
 
   <!-- Вкладка 2: Ручний парсинг -->
-  <div id="parsePanel" class="panel">
-    <div class="btn-row" style="margin-top: 0;">
-      <button id="parseBtn">Зпарсити сторінку</button>
-      <button id="pushParsedBtn" class="green" style="display: none;">На сервер</button>
-      <button id="copyBtn" class="outline" style="display: none; flex: 0.6;">Копіювати</button>
-    </div>
-    <div id="parseStatus" class="status-box">
-      На сторінці результатів (review.php) відправка на сервер працює автоматично. Тут можна перевірити парсер вручну.
-    </div>
-    <pre id="parseOutput" style="display: none;"></pre>
-  </div>
+  <main id="parsePanel" class="panel">
+    <section class="card">
+      <div class="btn-row" style="margin-top: 0;">
+        <button type="button" id="parseBtn">Зпарсити сторінку</button>
+        <button type="button" id="pushParsedBtn" class="green" style="display: none;">На сервер</button>
+        <button type="button" id="copyBtn" class="outline" style="display: none; flex: 0.65;">Копіювати</button>
+      </div>
+
+      <div id="parseStatus" class="status-box">
+        На сторінці результатів (review.php) відправка на сервер працює автоматично. Тут можна перевірити парсер вручну.
+      </div>
+
+      <pre id="parseOutput" style="display: none;"></pre>
+    </section>
+  </main>
 
   <script src="libs/jquery.min.js"></script>
   <script type="module" src="ui.js"></script>

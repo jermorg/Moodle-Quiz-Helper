@@ -23,62 +23,29 @@
 
     function showToast(text, isError = false) {
         const $toast = $('<div>')
+            .addClass(`moodle-helper-toast ${isError ? 'is-error' : ''}`)
             .text(text)
-            .css({
-                position: 'fixed',
-                bottom: '18px',
-                right: '18px',
-                zIndex: 99999,
-                padding: '10px 14px',
-                borderRadius: '8px',
-                fontSize: '12px',
-                fontWeight: '600',
-                color: '#fff',
-                background: isError ? '#dc2626' : '#16a34a',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                opacity: 0,
-                transition: 'opacity 0.2s'
-            })
             .appendTo('body');
 
-        requestAnimationFrame(() => $toast.css('opacity', 1));
-        setTimeout(() => $toast.fadeOut(300, () => $toast.remove()), 3500);
+        requestAnimationFrame(() => $toast.addClass('is-visible'));
+        setTimeout(() => {
+            $toast.removeClass('is-visible');
+            setTimeout(() => $toast.remove(), 250);
+        }, 3500);
     }
 
     function clearHighlights() {
-        $('.moodle-helper-mark')
-            .css({ backgroundColor: '', border: '', borderRadius: '', padding: '', marginBottom: '' })
-            .removeClass('moodle-helper-mark');
-
+        $('.moodle-helper-mark').removeClass('moodle-helper-mark is-correct is-wrong');
         $('.moodle-helper-badge, .moodle-helper-header-status, .moodle-helper-text-hint').remove();
-        $('.que.gapselect select').css({ border: '', backgroundColor: '' });
+        $('.que.gapselect select').removeClass('moodle-helper-select-correct');
     }
 
-    function paintRow($row, bgColor, borderColor, labelText) {
-        $row
-            .addClass('moodle-helper-mark')
-            .css({
-                backgroundColor: bgColor,
-                border: `2px solid ${borderColor}`,
-                borderRadius: '6px',
-                padding: '6px 10px',
-                marginBottom: '6px'
-            });
+    function paintRow($row, rowStateClass, badgeStateClass, labelText) {
+        $row.addClass(`moodle-helper-mark ${rowStateClass}`);
 
         const $badge = $('<span>')
-            .addClass('moodle-helper-badge')
-            .text(labelText)
-            .css({
-                display: 'inline-block',
-                marginLeft: '8px',
-                padding: '2px 6px',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                color: '#fff',
-                background: borderColor,
-                borderRadius: '4px',
-                verticalAlign: 'middle'
-            });
+            .addClass(`moodle-helper-badge ${badgeStateClass}`)
+            .text(labelText);
 
         const $target = $row.find('.d-flex').length ? $row.find('.d-flex').first() : $row;
         $target.append($badge);
@@ -93,18 +60,8 @@
             : `База: виключено ${wrongCount} з ${totalOptions}`;
 
         $('<div>')
-            .addClass('moodle-helper-header-status')
+            .addClass(`moodle-helper-header-status ${hasCorrect ? 'has-correct' : 'is-partial'}`)
             .text(statusText)
-            .css({
-                marginTop: '8px',
-                padding: '4px 6px',
-                fontSize: '11px',
-                fontWeight: '600',
-                borderRadius: '4px',
-                background: hasCorrect ? '#d4edda' : '#fff3cd',
-                color: hasCorrect ? '#155724' : '#856404',
-                border: `1px solid ${hasCorrect ? '#c3e6cb' : '#ffeeba'}`
-            })
             .appendTo($infoBox);
     }
 
@@ -131,34 +88,19 @@
 
             const stats = testsStats[testId];
             const hasSolved = stats.solved > 0;
+            const stateClass = hasSolved ? 'is-solved' : 'is-partial';
             const badgeText = hasSolved
-                ? `У базі: ${stats.solved} правельних з ${stats.total}`
-                : `У базі: ${stats.total} (без ✓)`;
+                ? `${stats.solved} / ${stats.total} правильних`
+                : `${stats.total} у базі • без ✓`;
 
             const $card = $li.find('.activity-item[data-region="activity-card"]').first();
             if ($card.length) {
-                $card.css({
-                    borderLeft: `4px solid ${hasSolved ? '#28a745' : '#ffc107'}`,
-                    backgroundColor: hasSolved ? 'rgba(40, 167, 69, 0.07)' : 'rgba(255, 193, 7, 0.09)'
-                });
+                $card.addClass(`moodle-helper-test-card ${stateClass}`);
             }
 
             const $badge = $('<span>')
-                .addClass('moodle-helper-test-badge')
-                .text(badgeText)
-                .css({
-                    display: 'inline-block',
-                    marginLeft: '8px',
-                    padding: '2px 8px',
-                    borderRadius: '12px',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    lineHeight: '1.3',
-                    verticalAlign: 'middle',
-                    backgroundColor: hasSolved ? '#d4edda' : '#fff3cd',
-                    color: hasSolved ? '#155724' : '#856404',
-                    border: `1px solid ${hasSolved ? '#28a745' : '#ffc107'}`
-                });
+                .addClass(`moodle-helper-test-badge ${stateClass}`)
+                .text(badgeText);
 
             const $instanceName = $li.find('.activityname .instancename').first();
             if ($instanceName.length) {
@@ -254,7 +196,7 @@
                         const prefix = `[${idx + 1}] `;
                         const match = deducedCorrects.find(c => c.startsWith(prefix));
                         if (match) {
-                            $(selEl).css({ border: '2px solid #28a745', backgroundColor: '#d4edda' });
+                            $(selEl).addClass('moodle-helper-select-correct');
                         }
                     });
                 }
@@ -265,17 +207,8 @@
                     : `Неправильні спроби: ${wrongList.join(' | ')}`;
 
                 $('<div>')
-                    .addClass('moodle-helper-text-hint')
+                    .addClass(`moodle-helper-text-hint ${deducedCorrects.length ? 'is-correct' : 'is-wrong'}`)
                     .text(hintText)
-                    .css({
-                        marginTop: '10px',
-                        padding: '8px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        background: deducedCorrects.length ? '#d4edda' : '#f8d7da',
-                        border: `1px solid ${deducedCorrects.length ? '#28a745' : '#dc3545'}`,
-                        color: deducedCorrects.length ? '#155724' : '#721c24'
-                    })
                     .appendTo($targetContainer);
 
                 continue;
@@ -283,9 +216,14 @@
 
             $.each(rowItems, (_, { $row, optionText }) => {
                 if (deducedCorrects.includes(optionText)) {
-                    paintRow($row, '#d4edda', '#28a745', isDeduced ? 'Правильно (виключенням)' : 'Правильно');
+                    paintRow(
+                        $row,
+                        'is-correct',
+                        isDeduced ? 'is-deduced' : 'is-correct',
+                        isDeduced ? '✓ Виключенням' : '✓ Правильно'
+                    );
                 } else if (wrongList.includes(optionText)) {
-                    paintRow($row, '#f8d7da', '#dc3545', 'Неправильно');
+                    paintRow($row, 'is-wrong', 'is-wrong', '✕ Неправильно');
                 }
             });
 
@@ -297,17 +235,8 @@
                         : `Неправильні спроби: ${wrongList.join(' | ')}`;
 
                     $('<div>')
-                        .addClass('moodle-helper-text-hint')
+                        .addClass(`moodle-helper-text-hint ${deducedCorrects.length ? 'is-correct' : 'is-wrong'}`)
                         .text(hintText)
-                        .css({
-                            marginTop: '8px',
-                            padding: '8px',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            background: deducedCorrects.length ? '#d4edda' : '#f8d7da',
-                            border: `1px solid ${deducedCorrects.length ? '#28a745' : '#dc3545'}`,
-                            color: deducedCorrects.length ? '#155724' : '#721c24'
-                        })
                         .appendTo($answerBlock);
                 }
             }
@@ -319,7 +248,6 @@
 
         await highlightCourseTests();
 
-        // Підстраховка для секцій курсу, які Moodle підвантажує динамічно
         const regionMain = document.querySelector('#region-main');
         if (regionMain && !path.includes('/mod/quiz/')) {
             let timer = null;
@@ -329,7 +257,6 @@
             }).observe(regionMain, { childList: true, subtree: true });
         }
 
-        // Якщо ми на сторінці огляду результатів (review.php) — зберігаємо питання і прив'язуємо до тесту
         if (path.includes('/mod/quiz/review.php')) {
             try {
                 const scraped = await universalMoodleParser();
@@ -357,6 +284,7 @@
         }
         if (area === 'local' && changes.testsStats) {
             $('.moodle-helper-test-badge').remove();
+            $('.moodle-helper-test-card').removeClass('moodle-helper-test-card is-solved is-partial');
             highlightCourseTests();
         }
     });
