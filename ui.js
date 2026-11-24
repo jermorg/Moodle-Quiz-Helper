@@ -36,6 +36,9 @@ async function refreshUI(preserveView = false) {
     const config = await getSyncConfig();
     isConnected = Boolean(config?.serverUrl && config?.token);
 
+    const { hintsEnabled = true } = await chrome.storage.local.get({ hintsEnabled: true });
+    $('#optHintsEnabled').prop('checked', Boolean(hintsEnabled));
+
     const $pill = $('#connPill');
     const $connText = $('#connText');
 
@@ -55,7 +58,7 @@ async function refreshUI(preserveView = false) {
         $pill.addClass('online').attr('title', `Підключено до ${config.serverUrl}`);
         $connText.text(`Онлайн · ${host}`);
 
-        $('#settingsToggleBtn, #disconnectBtn').show();
+        $('#settingsToggleBtn, #disconnectBtn, #hintsSettingCard').show();
         $('#connectBtn').text('Зберегти');
         $('#syncStatus').html(
             `Сервер: <b>${host}</b><br>Остання синхронізація: <b>${formatTime(config.lastSync)}</b>`
@@ -66,7 +69,7 @@ async function refreshUI(preserveView = false) {
         $pill.removeClass('online').removeAttr('title');
         $connText.text('Офлайн');
 
-        $('#settingsToggleBtn, #disconnectBtn').hide();
+        $('#settingsToggleBtn, #disconnectBtn, #hintsSettingCard').hide();
         $('#connectBtn').text('Підключити');
         switchView('settings');
     }
@@ -79,6 +82,10 @@ $(async function () {
         if (!isConnected) return;
         const isCurrentlySettings = $('#settingsView').hasClass('active');
         switchView(isCurrentlySettings ? 'dashboard' : 'settings');
+    });
+
+    $('#optHintsEnabled').on('change', async function () {
+        await chrome.storage.local.set({ hintsEnabled: $(this).is(':checked') });
     });
 
     $('#toggleTokenVis').on('click', function () {

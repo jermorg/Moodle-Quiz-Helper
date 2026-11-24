@@ -21,6 +21,11 @@
 
     const $ = window.jQuery;
 
+    async function isHintsEnabled() {
+        const { hintsEnabled = true } = await chrome.storage.local.get({ hintsEnabled: true });
+        return Boolean(hintsEnabled);
+    }
+
     function showToast(text, isError = false) {
         const $toast = $('<div>')
             .addClass(`moodle-helper-toast ${isError ? 'is-error' : ''}`)
@@ -38,6 +43,11 @@
         $('.moodle-helper-mark').removeClass('moodle-helper-mark is-correct is-wrong');
         $('.moodle-helper-badge, .moodle-helper-header-status, .moodle-helper-text-hint').remove();
         $('.que.gapselect select').removeClass('moodle-helper-select-correct');
+    }
+
+    function clearCourseTestBadges() {
+        $('.moodle-helper-test-badge').remove();
+        $('.moodle-helper-test-card').removeClass('moodle-helper-test-card is-solved is-partial');
     }
 
     function paintRow($row, rowStateClass, badgeStateClass, labelText) {
@@ -66,6 +76,11 @@
     }
 
     async function highlightCourseTests() {
+        if (!(await isHintsEnabled())) {
+            clearCourseTestBadges();
+            return;
+        }
+
         const path = window.location.pathname;
         if (path.includes('/mod/quiz/attempt.php') || path.includes('/mod/quiz/review.php')) {
             return;
@@ -113,6 +128,10 @@
 
     async function runBackgroundHighlight() {
         clearHighlights();
+
+        if (!(await isHintsEnabled())) {
+            return;
+        }
 
         const blocks = $('.que').get();
         for (const blockEl of blocks) {
@@ -279,12 +298,20 @@
     });
 
     chrome.storage.onChanged.addListener((changes, area) => {
-        if (area === 'local' && changes.quizDatabase) {
+        if (area !== 'local') return;
+
+        if (changes.hintsEnabled) {
+            runBackgroundHighlight();
+            clearCourseTestBadges();
+            highlightCourseTests();
+            return;
+        }
+
+        if (changes.quizDatabase) {
             runBackgroundHighlight();
         }
-        if (area === 'local' && changes.testsStats) {
-            $('.moodle-helper-test-badge').remove();
-            $('.moodle-helper-test-card').removeClass('moodle-helper-test-card is-solved is-partial');
+        if (changes.testsStats) {
+            clearCourseTestBadges();
             highlightCourseTests();
         }
     });
