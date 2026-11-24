@@ -1,80 +1,270 @@
-/* Картка варіанта відповіді */
+/* =========================================================
+   1. Відображення статистики біля тесту на сторінці курсу
+   ========================================================= */
+.moodle-helper-test-card {
+  border-radius: 18px !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.moodle-helper-test-card.is-solved {
+  background-color: rgba(0, 168, 107, 0.05) !important;
+  border: 1.5px solid rgba(0, 168, 107, 0.32) !important;
+}
+
+.moodle-helper-test-card.is-partial {
+  background-color: rgba(255, 159, 10, 0.06) !important;
+  border: 1.5px solid rgba(255, 159, 10, 0.35) !important;
+}
+
+.moodle-helper-test-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-family: "One UI Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.1px;
+  vertical-align: middle;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.moodle-helper-test-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.moodle-helper-test-badge.is-solved {
+  background-color: rgba(0, 168, 107, 0.13);
+  color: #00754a;
+  border: 1px solid rgba(0, 168, 107, 0.28);
+}
+
+.moodle-helper-test-badge.is-solved::before {
+  background-color: #00a86b;
+  box-shadow: 0 0 0 2.5px rgba(0, 168, 107, 0.22);
+}
+
+.moodle-helper-test-badge.is-partial {
+  background-color: rgba(255, 159, 10, 0.14);
+  color: #8f5400;
+  border: 1px solid rgba(255, 159, 10, 0.30);
+}
+
+.moodle-helper-test-badge.is-partial::before {
+  background-color: #f59e0b;
+  box-shadow: 0 0 0 2.5px rgba(245, 158, 11, 0.22);
+}
+
+/* =========================================================
+   2. Підсвітка варіантів відповідей (без зсуву та скролбару)
+   ========================================================= */
+.que .answer > div.r0,
+.que .answer > div.r1 {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 5px 10px;
+  margin-bottom: 4px;
+  border: 1.5px solid transparent;
+  border-radius: 14px;
+}
+
 .moodle-helper-mark {
-    border-radius: 14px !important;
-    padding: 8px 12px !important;
-    margin-bottom: 8px !important;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+  display: flex !important;
+  align-items: flex-start;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding: 6px 10px !important;
+  margin-bottom: 6px !important;
+  border-radius: 14px !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.moodle-helper-mark .d-flex {
+  flex: 1;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.moodle-helper-mark .flex-fill {
+  min-width: 0;
+  word-break: break-word;
 }
 
 .moodle-helper-mark.is-correct {
-    background-color: rgba(0, 168, 107, 0.10) !important;
-    border: 1.5px solid rgba(0, 168, 107, 0.55) !important;
+  background-color: rgba(0, 168, 107, 0.10) !important;
+  border: 1.5px solid rgba(0, 168, 107, 0.50) !important;
 }
 
 .moodle-helper-mark.is-wrong {
-    background-color: rgba(229, 57, 53, 0.08) !important;
-    border: 1.5px solid rgba(229, 57, 53, 0.45) !important;
+  background-color: rgba(229, 57, 53, 0.07) !important;
+  border: 1.5px solid rgba(229, 57, 53, 0.38) !important;
 }
 
-/* Бейдж-пігулка біля варіанта */
+/* Бейдж-пігулка праворуч у рядку відповіді */
 .moodle-helper-badge {
-    display: inline-flex;
-    align-items: center;
-    margin-left: auto;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1.2;
-    letter-spacing: 0.2px;
-    white-space: nowrap;
-    vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-family: "One UI Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0.15px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .moodle-helper-badge.is-correct {
-    background-color: #00a86b;
-    color: #ffffff;
+  background-color: #00a86b;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 168, 107, 0.25);
+}
+
+.moodle-helper-badge.is-deduced {
+  background-color: #0381fe;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(3, 129, 254, 0.25);
 }
 
 .moodle-helper-badge.is-wrong {
-    background-color: rgba(229, 57, 53, 0.14);
-    color: #c62828;
+  background-color: rgba(229, 57, 53, 0.13);
+  color: #c62828;
 }
 
-/* Статусна плашка у лівій колонці питання (.info) */
+/* =========================================================
+   3. Статусна плашка у лівій колонці питання (.info)
+   ========================================================= */
 .moodle-helper-header-status {
-    margin-top: 10px;
-    padding: 6px 10px;
-    border-radius: 12px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 11.5px;
-    font-weight: 600;
-    line-height: 1.35;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 8px;
+  padding: 3px 4px;
+  border-radius: 10px;
+  font-family: "One UI Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: break-word;
 }
 
 .moodle-helper-header-status.has-correct {
-    background-color: rgba(0, 168, 107, 0.12);
-    color: #007a4d;
-    border: 1px solid rgba(0, 168, 107, 0.30);
+  background-color: rgba(0, 168, 107, 0.12);
+  color: #00754a;
+  border: 1px solid rgba(0, 168, 107, 0.28);
 }
 
 .moodle-helper-header-status.is-partial {
-    background-color: rgba(255, 160, 0, 0.14);
-    color: #9a6000;
-    border: 1px solid rgba(255, 160, 0, 0.35);
+  background-color: rgba(255, 159, 10, 0.14);
+  color: #8f5400;
+  border: 1px solid rgba(255, 159, 10, 0.32);
+} 
+
+/* =========================================================
+   4. Gapselect та текстові підказки
+   ========================================================= */
+.moodle-helper-select-correct {
+  border: 1.5px solid #00a86b !important;
+  background-color: rgba(0, 168, 107, 0.10) !important;
+  border-radius: 12px !important;
 }
 
-/* Підказка для текстових полів та випадаючих списків */
 .moodle-helper-text-hint {
-    margin-top: 10px;
-    padding: 10px 14px;
-    border-radius: 14px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 12.5px;
-    font-weight: 500;
-    line-height: 1.4;
-    background-color: rgba(3, 129, 254, 0.09);
-    border: 1.5px solid rgba(3, 129, 254, 0.40);
-    color: #0257b3;
+  margin-top: 10px;
+  padding: 9px 13px;
+  border-radius: 14px;
+  font-family: "One UI Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.moodle-helper-text-hint.is-correct {
+  background-color: rgba(0, 168, 107, 0.10);
+  border: 1.5px solid rgba(0, 168, 107, 0.40);
+  color: #00754a;
+}
+
+.moodle-helper-text-hint.is-wrong {
+  background-color: rgba(229, 57, 53, 0.08);
+  border: 1.5px solid rgba(229, 57, 53, 0.35);
+  color: #b71c1c;
+}
+
+/* =========================================================
+   5. Floating One UI Toast
+   ========================================================= */
+.moodle-helper-toast {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  z-index: 99999;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-family: "One UI Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fafafa;
+  background: rgba(23, 23, 26, 0.94);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.moodle-helper-toast::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1ec987;
+  flex-shrink: 0;
+}
+
+.moodle-helper-toast.is-error::before {
+  background: #ff5c58;
+}
+
+.moodle-helper-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.moodle-helper-personal-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-family: "One UI Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  vertical-align: middle;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  background-color: rgba(3, 129, 254, 0.11);
+  color: #006ee6;
+  border: 1px solid rgba(3, 129, 254, 0.25);
 }

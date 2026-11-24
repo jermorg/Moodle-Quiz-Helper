@@ -3,11 +3,12 @@
     const {
         clean,
         makeHash,
+        extractTestId,
         extractQuestionId,
         extractMediaSignatures
     } = await import(chrome.runtime.getURL('shared/utils.js'));
 
-    const { findQuestionEntry, addQuestionsToDatabase } = await import(
+    const { getDatabase, lookupQuestion, addQuestionsToDatabase } = await import(
         chrome.runtime.getURL('database/db.js')
     );
 
@@ -20,65 +21,137 @@
     );
 
     const $ = window.jQuery;
+    const PERSONAL_TESTS_KEY = 'personalCompletedTests';
+
+    async function getFeatureFlags() {
+        const { hintsEnabled = true, showPassedTests = true } = await chrome.storage.local.get({
+            hintsEnabled: true,
+            showPassedTests: true
+        });
+        return {
+            hintsEnabled: Boolean(hintsEnabled),
+            showPassedTests: Boolean(showPassedTests)
+        };
+    }
+
+    function formatScore(num) {
+        if (num === null || num === undefined || Number.isNaN(num)) return '';
+        return Number.isInteger(num) ? String(num) : num.toFixed(2).replace(/\.?0+$/, '');
+    }
+
+    function parseScorePair(text) {
+        const cleaned = clean(text);
+        const match = cleaned.match(/([\d,.]+)\s*(?:з|\/|out of)\s*([\d,.]+)/i);
+        if (!match) return null;
+
+        const earned = parseFloat(match[1].replace(',', '.'));
+        const max = parseFloat(match[2].replace(',', '.'));
+        if (Number.isNaN(earned) || Number.isNaN(max) || max <= 0) return null;
+
+        return { earned, max };
+    }
+
+    async function savePersonalTestResult(testId, scoreObj) {
+        if (!testId) return;
+
+        const data = await chrome.storage.local.get(PERSONAL_TESTS_KEY);
+        const map = data[PERSONAL_TESTS_KEY] || {};
+        const prev = map[testId];
+
+        const nextEarned = scoreObj ? scoreObj.earned : (prev?.earned ?? null);
+        const nextMax = scoreObj ? scoreObj.max : (prev?.max ?? null);
+
+        if (prev && prev.earned !== null && nextEarned !== null && prev.earned > nextEarned) {
+            return;
+        }
+
+        map[testId] = {
+            earned: nextEarned,
+            max: nextMax,
+            updatedAt: Date.now()
+        };
+
+        await chrome.storage.local.set({ [PERSONAL_TESTS_KEY]: map });
+    }
+
+    function collectPersonalScoreFromPage() {
+        const path = window.location.pathname;
+        const testId = extractTestId();
+        if (!testId) return;
+
+        if (path.includes('/mod/quiz/review.php')) {
+            let foundScore = null;
+
+            $('table.quizreviewsummary tr').each((_, tr) => {
+                const label = clean($(tr).find('th').text()).toLowerCase();
+                if (label.includes('оцінка') || label.includes('бали') || label.includes('grade') || label.includes('mark')) {
+                    const parsed = parseScorePair($(tr).find('td').text());
+                    if (parsed) {
+                        foundScore = parsed;
+                        return false;
+                    }
+                }
+            });
+
+            savePersonalTestResult(testId, foundScore);
+            return;
+        }
+
+        if (path.includes('/mod/quiz/view.php')) {
+            let bestScore = null;
+
+            const feedbackText = clean($('#feedback').text());
+            const feedbackScore = parseScorePair(feedbackText);
+            if (feedbackScore) {
+                bestScore = feedbackScore;
+            }
+
+            if (!bestScore) {
+                $('table.quizattemptsummary tbody tr').each((_, tr) => {
+                    const rowText = clean($(tr).text());
+                    const parsed = parseScorePair(rowText);
+                    if (parsed && (!bestScore || parsed.earned > bestScore.earned)) {
+                        bestScore = parsed;
+                    }
+                });
+            }
+
+            if (bestScore || $('table.quizattemptsummary tbody tr').length > 0) {
+                savePersonalTestResult(testId, bestScore);
+            }
+        }
+    }
 
     function showToast(text, isError = false) {
         const $toast = $('<div>')
+            .addClass(`moodle-helper-toast ${isError ? 'is-error' : ''}`)
             .text(text)
-            .css({
-                position: 'fixed',
-                bottom: '18px',
-                right: '18px',
-                zIndex: 99999,
-                padding: '10px 14px',
-                borderRadius: '8px',
-                fontSize: '12px',
-                fontWeight: '600',
-                color: '#fff',
-                background: isError ? '#dc2626' : '#16a34a',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                opacity: 0,
-                transition: 'opacity 0.2s'
-            })
             .appendTo('body');
 
-        requestAnimationFrame(() => $toast.css('opacity', 1));
-        setTimeout(() => $toast.fadeOut(300, () => $toast.remove()), 3500);
+        requestAnimationFrame(() => $toast.addClass('is-visible'));
+        setTimeout(() => {
+            $toast.removeClass('is-visible');
+            setTimeout(() => $toast.remove(), 250);
+        }, 3500);
     }
 
     function clearHighlights() {
-        $('.moodle-helper-mark')
-            .css({ backgroundColor: '', border: '', borderRadius: '', padding: '', marginBottom: '' })
-            .removeClass('moodle-helper-mark');
-
+        $('.moodle-helper-mark').removeClass('moodle-helper-mark is-correct is-wrong');
         $('.moodle-helper-badge, .moodle-helper-header-status, .moodle-helper-text-hint').remove();
-        $('.que.gapselect select').css({ border: '', backgroundColor: '' });
+        $('.que.gapselect select').removeClass('moodle-helper-select-correct');
     }
 
-    function paintRow($row, bgColor, borderColor, labelText) {
-        $row
-            .addClass('moodle-helper-mark')
-            .css({
-                backgroundColor: bgColor,
-                border: `2px solid ${borderColor}`,
-                borderRadius: '6px',
-                padding: '6px 10px',
-                marginBottom: '6px'
-            });
+    function clearCourseTestBadges() {
+        $('.moodle-helper-test-badge, .moodle-helper-personal-badge').remove();
+        $('.moodle-helper-test-card').removeClass('moodle-helper-test-card is-solved is-partial');
+    }
+
+    function paintRow($row, rowStateClass, badgeStateClass, labelText) {
+        $row.addClass(`moodle-helper-mark ${rowStateClass}`);
 
         const $badge = $('<span>')
-            .addClass('moodle-helper-badge')
-            .text(labelText)
-            .css({
-                display: 'inline-block',
-                marginLeft: '8px',
-                padding: '2px 6px',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                color: '#fff',
-                background: borderColor,
-                borderRadius: '4px',
-                verticalAlign: 'middle'
-            });
+            .addClass(`moodle-helper-badge ${badgeStateClass}`)
+            .text(labelText);
 
         const $target = $row.find('.d-flex').length ? $row.find('.d-flex').first() : $row;
         $target.append($badge);
@@ -93,18 +166,8 @@
             : `База: виключено ${wrongCount} з ${totalOptions}`;
 
         $('<div>')
-            .addClass('moodle-helper-header-status')
+            .addClass(`moodle-helper-header-status ${hasCorrect ? 'has-correct' : 'is-partial'}`)
             .text(statusText)
-            .css({
-                marginTop: '8px',
-                padding: '4px 6px',
-                fontSize: '11px',
-                fontWeight: '600',
-                borderRadius: '4px',
-                background: hasCorrect ? '#d4edda' : '#fff3cd',
-                color: hasCorrect ? '#155724' : '#856404',
-                border: `1px solid ${hasCorrect ? '#c3e6cb' : '#ffeeba'}`
-            })
             .appendTo($infoBox);
     }
 
@@ -114,57 +177,69 @@
             return;
         }
 
-        const { testsStats = {} } = await chrome.storage.local.get('testsStats');
-        if (!Object.keys(testsStats).length) return;
+        const { hintsEnabled, showPassedTests } = await getFeatureFlags();
+        if (!hintsEnabled && !showPassedTests) {
+            clearCourseTestBadges();
+            return;
+        }
+
+        const storage = await chrome.storage.local.get(['testsStats', PERSONAL_TESTS_KEY]);
+        const testsStats = hintsEnabled ? (storage.testsStats || {}) : {};
+        const personalTests = showPassedTests ? (storage[PERSONAL_TESTS_KEY] || {}) : {};
 
         $('ul[data-for="cmlist"] li.activity.modtype_quiz, li.activity.quiz').each((_, liEl) => {
             const $li = $(liEl);
-            if ($li.find('.moodle-helper-test-badge').length) return;
-
             const testId = String(
                 $li.attr('data-id') ||
                 ($li.attr('id') || '').replace('module-', '') ||
                 ''
             );
-
-            if (!testId || !testsStats[testId] || testsStats[testId].total === 0) return;
-
-            const stats = testsStats[testId];
-            const hasSolved = stats.solved > 0;
-            const badgeText = hasSolved
-                ? `У базі: ${stats.solved} правельних з ${stats.total}`
-                : `У базі: ${stats.total} (без ✓)`;
-
-            const $card = $li.find('.activity-item[data-region="activity-card"]').first();
-            if ($card.length) {
-                $card.css({
-                    borderLeft: `4px solid ${hasSolved ? '#28a745' : '#ffc107'}`,
-                    backgroundColor: hasSolved ? 'rgba(40, 167, 69, 0.07)' : 'rgba(255, 193, 7, 0.09)'
-                });
-            }
-
-            const $badge = $('<span>')
-                .addClass('moodle-helper-test-badge')
-                .text(badgeText)
-                .css({
-                    display: 'inline-block',
-                    marginLeft: '8px',
-                    padding: '2px 8px',
-                    borderRadius: '12px',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    lineHeight: '1.3',
-                    verticalAlign: 'middle',
-                    backgroundColor: hasSolved ? '#d4edda' : '#fff3cd',
-                    color: hasSolved ? '#155724' : '#856404',
-                    border: `1px solid ${hasSolved ? '#28a745' : '#ffc107'}`
-                });
+            if (!testId) return;
 
             const $instanceName = $li.find('.activityname .instancename').first();
-            if ($instanceName.length) {
-                $instanceName.after($badge);
-            } else {
-                $li.find('.activityname').first().append($badge);
+            const $anchor = $instanceName.length ? $instanceName : $li.find('.activityname').first();
+
+            if (showPassedTests && personalTests[testId] && !$li.find('.moodle-helper-personal-badge').length) {
+                const pInfo = personalTests[testId];
+                const hasScore = pInfo.earned !== null && pInfo.max !== null;
+                const label = hasScore
+                    ? `✓ ${formatScore(pInfo.earned)}/${formatScore(pInfo.max)}`
+                    : '✓ Пройдено';
+
+                const $personalBadge = $('<span>')
+                    .addClass('moodle-helper-personal-badge')
+                    .attr('title', hasScore ? `Ваш найкращий результат: ${formatScore(pInfo.earned)} з ${formatScore(pInfo.max)}` : 'Ви вже проходили цей тест')
+                    .text(label);
+
+                if ($instanceName.length) {
+                    $instanceName.after($personalBadge);
+                } else {
+                    $anchor.append($personalBadge);
+                }
+            }
+
+            if (hintsEnabled && testsStats[testId] && testsStats[testId].total > 0 && !$li.find('.moodle-helper-test-badge').length) {
+                const stats = testsStats[testId];
+                const hasSolved = stats.solved > 0;
+                const stateClass = hasSolved ? 'is-solved' : 'is-partial';
+                const badgeText = hasSolved
+                    ? `${stats.solved} / ${stats.total} правильних`
+                    : `${stats.total} у базі • без ✓`;
+
+                const $card = $li.find('.activity-item[data-region="activity-card"]').first();
+                if ($card.length) {
+                    $card.addClass(`moodle-helper-test-card ${stateClass}`);
+                }
+
+                const $badge = $('<span>')
+                    .addClass(`moodle-helper-test-badge ${stateClass}`)
+                    .text(badgeText);
+
+                if ($instanceName.length) {
+                    $instanceName.after($badge);
+                } else {
+                    $anchor.append($badge);
+                }
             }
         });
     }
@@ -172,7 +247,15 @@
     async function runBackgroundHighlight() {
         clearHighlights();
 
+        const { hintsEnabled } = await getFeatureFlags();
+        if (!hintsEnabled) return;
+
         const blocks = $('.que').get();
+        if (!blocks.length) return;
+
+        const db = await getDatabase();
+        if (!Object.keys(db).length) return;
+
         for (const blockEl of blocks) {
             const $block = $(blockEl);
             const $qtext = $block.find('.qtext');
@@ -229,7 +312,7 @@
 
             const fingerprint = makeHash(`${questionText}::${qMedia.join(',')}::${[...currentOptions].sort().join('|')}`);
 
-            const entry = await findQuestionEntry(qid, fingerprint);
+            const entry = lookupQuestion(db, qid, fingerprint);
             if (!entry) continue;
 
             const wrongList = entry.wrong_answers || [];
@@ -254,7 +337,7 @@
                         const prefix = `[${idx + 1}] `;
                         const match = deducedCorrects.find(c => c.startsWith(prefix));
                         if (match) {
-                            $(selEl).css({ border: '2px solid #28a745', backgroundColor: '#d4edda' });
+                            $(selEl).addClass('moodle-helper-select-correct');
                         }
                     });
                 }
@@ -265,17 +348,8 @@
                     : `Неправильні спроби: ${wrongList.join(' | ')}`;
 
                 $('<div>')
-                    .addClass('moodle-helper-text-hint')
+                    .addClass(`moodle-helper-text-hint ${deducedCorrects.length ? 'is-correct' : 'is-wrong'}`)
                     .text(hintText)
-                    .css({
-                        marginTop: '10px',
-                        padding: '8px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        background: deducedCorrects.length ? '#d4edda' : '#f8d7da',
-                        border: `1px solid ${deducedCorrects.length ? '#28a745' : '#dc3545'}`,
-                        color: deducedCorrects.length ? '#155724' : '#721c24'
-                    })
                     .appendTo($targetContainer);
 
                 continue;
@@ -283,9 +357,14 @@
 
             $.each(rowItems, (_, { $row, optionText }) => {
                 if (deducedCorrects.includes(optionText)) {
-                    paintRow($row, '#d4edda', '#28a745', isDeduced ? 'Правильно (виключенням)' : 'Правильно');
+                    paintRow(
+                        $row,
+                        'is-correct',
+                        isDeduced ? 'is-deduced' : 'is-correct',
+                        isDeduced ? '✓ Виключенням' : '✓ Правильно'
+                    );
                 } else if (wrongList.includes(optionText)) {
-                    paintRow($row, '#f8d7da', '#dc3545', 'Неправильно');
+                    paintRow($row, 'is-wrong', 'is-wrong', '✕ Неправильно');
                 }
             });
 
@@ -297,17 +376,8 @@
                         : `Неправильні спроби: ${wrongList.join(' | ')}`;
 
                     $('<div>')
-                        .addClass('moodle-helper-text-hint')
+                        .addClass(`moodle-helper-text-hint ${deducedCorrects.length ? 'is-correct' : 'is-wrong'}`)
                         .text(hintText)
-                        .css({
-                            marginTop: '8px',
-                            padding: '8px',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            background: deducedCorrects.length ? '#d4edda' : '#f8d7da',
-                            border: `1px solid ${deducedCorrects.length ? '#28a745' : '#dc3545'}`,
-                            color: deducedCorrects.length ? '#155724' : '#721c24'
-                        })
                         .appendTo($answerBlock);
                 }
             }
@@ -317,9 +387,9 @@
     $(async function () {
         const path = window.location.pathname;
 
+        collectPersonalScoreFromPage();
         await highlightCourseTests();
 
-        // Підстраховка для секцій курсу, які Moodle підвантажує динамічно
         const regionMain = document.querySelector('#region-main');
         if (regionMain && !path.includes('/mod/quiz/')) {
             let timer = null;
@@ -329,7 +399,6 @@
             }).observe(regionMain, { childList: true, subtree: true });
         }
 
-        // Якщо ми на сторінці огляду результатів (review.php) — зберігаємо питання і прив'язуємо до тесту
         if (path.includes('/mod/quiz/review.php')) {
             try {
                 const scraped = await universalMoodleParser();
@@ -352,11 +421,20 @@
     });
 
     chrome.storage.onChanged.addListener((changes, area) => {
-        if (area === 'local' && changes.quizDatabase) {
+        if (area !== 'local') return;
+
+        if (changes.hintsEnabled || changes.showPassedTests) {
+            runBackgroundHighlight();
+            clearCourseTestBadges();
+            highlightCourseTests();
+            return;
+        }
+
+        if (changes.quizDatabase) {
             runBackgroundHighlight();
         }
-        if (area === 'local' && changes.testsStats) {
-            $('.moodle-helper-test-badge').remove();
+        if (changes.testsStats || changes[PERSONAL_TESTS_KEY]) {
+            clearCourseTestBadges();
             highlightCourseTests();
         }
     });

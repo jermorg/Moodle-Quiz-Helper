@@ -1,11 +1,11 @@
-export async function universalMoodleParser() {
-    const {
-        clean,
-        makeHash,
-        extractQuestionId,
-        extractMediaSignatures
-    } = await import(chrome.runtime.getURL('shared/utils.js'));
+import {
+    clean,
+    makeHash,
+    extractQuestionId,
+    extractMediaSignatures
+} from '../shared/utils.js';
 
+export function universalMoodleParser() {
     const $ = window.jQuery;
     const results = [];
 
@@ -18,7 +18,6 @@ export async function universalMoodleParser() {
         const knownTypes = ['multichoice', 'truefalse', 'shortanswer', 'numerical', 'match', 'gapselect', 'ddwtos'];
         const qType = knownTypes.find(t => $block.hasClass(t)) || 'unknown';
 
-        // Для gapselect замінюємо <select> у копії тексту на [1], [2], щоб текст питання не склеювався з варіантами
         let questionText = '';
         if (qType === 'gapselect') {
             const $qtextClone = $qtext.clone();
@@ -35,7 +34,6 @@ export async function universalMoodleParser() {
         const answers = [];
         const selectedAnswers = [];
 
-        // 1. Radio та Checkbox (multichoice / truefalse)
         $block.find('.answer > div, .answer tr').each((_, rowEl) => {
             const $row = $(rowEl);
             const $input = $row.find('input[type="radio"], input[type="checkbox"]');
@@ -55,13 +53,11 @@ export async function universalMoodleParser() {
             }
         });
 
-        // 2. Текстові поля (shortanswer / numerical)
         if (!answers.length && qType !== 'gapselect') {
             const textVal = clean($block.find('.answer input[type="text"]').val());
             if (textVal) selectedAnswers.push(textVal);
         }
 
-        // 3. Випадаючі списки: у .qtext (для gapselect) або в .answer (для match)
         const $selects = qType === 'gapselect' ? $qtext.find('select') : $block.find('.answer select');
         $selects.each((idx, selEl) => {
             const $sel = $(selEl);
@@ -89,7 +85,6 @@ export async function universalMoodleParser() {
             }
         });
 
-        // 4. Визначення правильних та неправильних відповідей
         let correctAnswers = [];
         const wrongAnswers = [];
 
