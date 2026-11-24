@@ -3,11 +3,12 @@
     const {
         clean,
         makeHash,
+        extractTestId,
         extractQuestionId,
         extractMediaSignatures
     } = await import(chrome.runtime.getURL('shared/utils.js'));
 
-    const { findQuestionEntry, addQuestionsToDatabase } = await import(
+    const { getDatabase, lookupQuestion, addQuestionsToDatabase } = await import(
         chrome.runtime.getURL('database/db.js')
     );
 
@@ -20,10 +21,105 @@
     );
 
     const $ = window.jQuery;
+    const PERSONAL_TESTS_KEY = 'personalCompletedTests';
 
-    async function isHintsEnabled() {
-        const { hintsEnabled = true } = await chrome.storage.local.get({ hintsEnabled: true });
-        return Boolean(hintsEnabled);
+    async function getFeatureFlags() {
+        const { hintsEnabled = true, showPassedTests = true } = await chrome.storage.local.get({
+            hintsEnabled: true,
+            showPassedTests: true
+        });
+        return {
+            hintsEnabled: Boolean(hintsEnabled),
+            showPassedTests: Boolean(showPassedTests)
+        };
+    }
+
+    function formatScore(num) {
+        if (num === null || num === undefined || Number.isNaN(num)) return '';
+        return Number.isInteger(num) ? String(num) : num.toFixed(2).replace(/\.?0+$/, '');
+    }
+
+    function parseScorePair(text) {
+        const cleaned = clean(text);
+        const match = cleaned.match(/([\d,.]+)\s*(?:з|\/|out of)\s*([\d,.]+)/i);
+        if (!match) return null;
+
+        const earned = parseFloat(match[1].replace(',', '.'));
+        const max = parseFloat(match[2].replace(',', '.'));
+        if (Number.isNaN(earned) || Number.isNaN(max) || max <= 0) return null;
+
+        return { earned, max };
+    }
+
+    async function savePersonalTestResult(testId, scoreObj) {
+        if (!testId) return;
+
+        const data = await chrome.storage.local.get(PERSONAL_TESTS_KEY);
+        const map = data[PERSONAL_TESTS_KEY] || {};
+        const prev = map[testId];
+
+        const nextEarned = scoreObj ? scoreObj.earned : (prev?.earned ?? null);
+        const nextMax = scoreObj ? scoreObj.max : (prev?.max ?? null);
+
+        if (prev && prev.earned !== null && nextEarned !== null && prev.earned > nextEarned) {
+            return;
+        }
+
+        map[testId] = {
+            earned: nextEarned,
+            max: nextMax,
+            updatedAt: Date.now()
+        };
+
+        await chrome.storage.local.set({ [PERSONAL_TESTS_KEY]: map });
+    }
+
+    function collectPersonalScoreFromPage() {
+        const path = window.location.pathname;
+        const testId = extractTestId();
+        if (!testId) return;
+
+        if (path.includes('/mod/quiz/review.php')) {
+            let foundScore = null;
+
+            $('table.quizreviewsummary tr').each((_, tr) => {
+                const label = clean($(tr).find('th').text()).toLowerCase();
+                if (label.includes('оцінка') || label.includes('бали') || label.includes('grade') || label.includes('mark')) {
+                    const parsed = parseScorePair($(tr).find('td').text());
+                    if (parsed) {
+                        foundScore = parsed;
+                        return false;
+                    }
+                }
+            });
+
+            savePersonalTestResult(testId, foundScore);
+            return;
+        }
+
+        if (path.includes('/mod/quiz/view.php')) {
+            let bestScore = null;
+
+            const feedbackText = clean($('#feedback').text());
+            const feedbackScore = parseScorePair(feedbackText);
+            if (feedbackScore) {
+                bestScore = feedbackScore;
+            }
+
+            if (!bestScore) {
+                $('table.quizattemptsummary tbody tr').each((_, tr) => {
+                    const rowText = clean($(tr).text());
+                    const parsed = parseScorePair(rowText);
+                    if (parsed && (!bestScore || parsed.earned > bestScore.earned)) {
+                        bestScore = parsed;
+                    }
+                });
+            }
+
+            if (bestScore || $('table.quizattemptsummary tbody tr').length > 0) {
+                savePersonalTestResult(testId, bestScore);
+            }
+        }
     }
 
     function showToast(text, isError = false) {
@@ -46,7 +142,7 @@
     }
 
     function clearCourseTestBadges() {
-        $('.moodle-helper-test-badge').remove();
+        $('.moodle-helper-test-badge, .moodle-helper-personal-badge').remove();
         $('.moodle-helper-test-card').removeClass('moodle-helper-test-card is-solved is-partial');
     }
 
@@ -76,52 +172,74 @@
     }
 
     async function highlightCourseTests() {
-        if (!(await isHintsEnabled())) {
-            clearCourseTestBadges();
-            return;
-        }
-
         const path = window.location.pathname;
         if (path.includes('/mod/quiz/attempt.php') || path.includes('/mod/quiz/review.php')) {
             return;
         }
 
-        const { testsStats = {} } = await chrome.storage.local.get('testsStats');
-        if (!Object.keys(testsStats).length) return;
+        const { hintsEnabled, showPassedTests } = await getFeatureFlags();
+        if (!hintsEnabled && !showPassedTests) {
+            clearCourseTestBadges();
+            return;
+        }
+
+        const storage = await chrome.storage.local.get(['testsStats', PERSONAL_TESTS_KEY]);
+        const testsStats = hintsEnabled ? (storage.testsStats || {}) : {};
+        const personalTests = showPassedTests ? (storage[PERSONAL_TESTS_KEY] || {}) : {};
 
         $('ul[data-for="cmlist"] li.activity.modtype_quiz, li.activity.quiz').each((_, liEl) => {
             const $li = $(liEl);
-            if ($li.find('.moodle-helper-test-badge').length) return;
-
             const testId = String(
                 $li.attr('data-id') ||
                 ($li.attr('id') || '').replace('module-', '') ||
                 ''
             );
-
-            if (!testId || !testsStats[testId] || testsStats[testId].total === 0) return;
-
-            const stats = testsStats[testId];
-            const hasSolved = stats.solved > 0;
-            const stateClass = hasSolved ? 'is-solved' : 'is-partial';
-            const badgeText = hasSolved
-                ? `${stats.solved} / ${stats.total} правильних`
-                : `${stats.total} у базі • без ✓`;
-
-            const $card = $li.find('.activity-item[data-region="activity-card"]').first();
-            if ($card.length) {
-                $card.addClass(`moodle-helper-test-card ${stateClass}`);
-            }
-
-            const $badge = $('<span>')
-                .addClass(`moodle-helper-test-badge ${stateClass}`)
-                .text(badgeText);
+            if (!testId) return;
 
             const $instanceName = $li.find('.activityname .instancename').first();
-            if ($instanceName.length) {
-                $instanceName.after($badge);
-            } else {
-                $li.find('.activityname').first().append($badge);
+            const $anchor = $instanceName.length ? $instanceName : $li.find('.activityname').first();
+
+            if (showPassedTests && personalTests[testId] && !$li.find('.moodle-helper-personal-badge').length) {
+                const pInfo = personalTests[testId];
+                const hasScore = pInfo.earned !== null && pInfo.max !== null;
+                const label = hasScore
+                    ? `✓ ${formatScore(pInfo.earned)}/${formatScore(pInfo.max)}`
+                    : '✓ Пройдено';
+
+                const $personalBadge = $('<span>')
+                    .addClass('moodle-helper-personal-badge')
+                    .attr('title', hasScore ? `Ваш найкращий результат: ${formatScore(pInfo.earned)} з ${formatScore(pInfo.max)}` : 'Ви вже проходили цей тест')
+                    .text(label);
+
+                if ($instanceName.length) {
+                    $instanceName.after($personalBadge);
+                } else {
+                    $anchor.append($personalBadge);
+                }
+            }
+
+            if (hintsEnabled && testsStats[testId] && testsStats[testId].total > 0 && !$li.find('.moodle-helper-test-badge').length) {
+                const stats = testsStats[testId];
+                const hasSolved = stats.solved > 0;
+                const stateClass = hasSolved ? 'is-solved' : 'is-partial';
+                const badgeText = hasSolved
+                    ? `${stats.solved} / ${stats.total} правильних`
+                    : `${stats.total} у базі • без ✓`;
+
+                const $card = $li.find('.activity-item[data-region="activity-card"]').first();
+                if ($card.length) {
+                    $card.addClass(`moodle-helper-test-card ${stateClass}`);
+                }
+
+                const $badge = $('<span>')
+                    .addClass(`moodle-helper-test-badge ${stateClass}`)
+                    .text(badgeText);
+
+                if ($instanceName.length) {
+                    $instanceName.after($badge);
+                } else {
+                    $anchor.append($badge);
+                }
             }
         });
     }
@@ -129,11 +247,15 @@
     async function runBackgroundHighlight() {
         clearHighlights();
 
-        if (!(await isHintsEnabled())) {
-            return;
-        }
+        const { hintsEnabled } = await getFeatureFlags();
+        if (!hintsEnabled) return;
 
         const blocks = $('.que').get();
+        if (!blocks.length) return;
+
+        const db = await getDatabase();
+        if (!Object.keys(db).length) return;
+
         for (const blockEl of blocks) {
             const $block = $(blockEl);
             const $qtext = $block.find('.qtext');
@@ -190,7 +312,7 @@
 
             const fingerprint = makeHash(`${questionText}::${qMedia.join(',')}::${[...currentOptions].sort().join('|')}`);
 
-            const entry = await findQuestionEntry(qid, fingerprint);
+            const entry = lookupQuestion(db, qid, fingerprint);
             if (!entry) continue;
 
             const wrongList = entry.wrong_answers || [];
@@ -265,6 +387,7 @@
     $(async function () {
         const path = window.location.pathname;
 
+        collectPersonalScoreFromPage();
         await highlightCourseTests();
 
         const regionMain = document.querySelector('#region-main');
@@ -300,7 +423,7 @@
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'local') return;
 
-        if (changes.hintsEnabled) {
+        if (changes.hintsEnabled || changes.showPassedTests) {
             runBackgroundHighlight();
             clearCourseTestBadges();
             highlightCourseTests();
@@ -310,7 +433,7 @@
         if (changes.quizDatabase) {
             runBackgroundHighlight();
         }
-        if (changes.testsStats) {
+        if (changes.testsStats || changes[PERSONAL_TESTS_KEY]) {
             clearCourseTestBadges();
             highlightCourseTests();
         }

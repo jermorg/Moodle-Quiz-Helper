@@ -36,8 +36,12 @@ async function refreshUI(preserveView = false) {
     const config = await getSyncConfig();
     isConnected = Boolean(config?.serverUrl && config?.token);
 
-    const { hintsEnabled = true } = await chrome.storage.local.get({ hintsEnabled: true });
+    const { hintsEnabled = true, showPassedTests = true } = await chrome.storage.local.get({
+        hintsEnabled: true,
+        showPassedTests: true
+    });
     $('#optHintsEnabled').prop('checked', Boolean(hintsEnabled));
+    $('#optShowPassedTests').prop('checked', Boolean(showPassedTests));
 
     const $pill = $('#connPill');
     const $connText = $('#connText');
@@ -86,6 +90,10 @@ $(async function () {
 
     $('#optHintsEnabled').on('change', async function () {
         await chrome.storage.local.set({ hintsEnabled: $(this).is(':checked') });
+    });
+
+    $('#optShowPassedTests').on('change', async function () {
+        await chrome.storage.local.set({ showPassedTests: $(this).is(':checked') });
     });
 
     $('#toggleTokenVis').on('click', function () {
