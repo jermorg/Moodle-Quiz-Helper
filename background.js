@@ -1,4 +1,6 @@
 (async function () {
+    if (window.__moodleHelperInitialized) return;
+    window.__moodleHelperInitialized = true;
 
     const {
         clean,
@@ -22,6 +24,9 @@
 
     const $ = window.jQuery;
     const PERSONAL_TESTS_KEY = 'personalCompletedTests';
+
+    let highlightRunId = 0;
+    let courseBadgesRunId = 0;
 
     async function getFeatureFlags() {
         const { hintsEnabled = true, showPassedTests = true } = await chrome.storage.local.get({
@@ -177,13 +182,21 @@
             return;
         }
 
+        const currentRunId = ++courseBadgesRunId;
+
         const { hintsEnabled, showPassedTests } = await getFeatureFlags();
+        if (currentRunId !== courseBadgesRunId) return;
+
         if (!hintsEnabled && !showPassedTests) {
             clearCourseTestBadges();
             return;
         }
 
         const storage = await chrome.storage.local.get(['testsStats', PERSONAL_TESTS_KEY]);
+        if (currentRunId !== courseBadgesRunId) return;
+
+        clearCourseTestBadges();
+
         const testsStats = hintsEnabled ? (storage.testsStats || {}) : {};
         const personalTests = showPassedTests ? (storage[PERSONAL_TESTS_KEY] || {}) : {};
 
@@ -199,7 +212,7 @@
             const $instanceName = $li.find('.activityname .instancename').first();
             const $anchor = $instanceName.length ? $instanceName : $li.find('.activityname').first();
 
-            if (showPassedTests && personalTests[testId] && !$li.find('.moodle-helper-personal-badge').length) {
+            if (showPassedTests && personalTests[testId]) {
                 const pInfo = personalTests[testId];
                 const hasScore = pInfo.earned !== null && pInfo.max !== null;
                 const label = hasScore
@@ -218,7 +231,7 @@
                 }
             }
 
-            if (hintsEnabled && testsStats[testId] && testsStats[testId].total > 0 && !$li.find('.moodle-helper-test-badge').length) {
+            if (hintsEnabled && testsStats[testId] && testsStats[testId].total > 0) {
                 const stats = testsStats[testId];
                 const hasSolved = stats.solved > 0;
                 const stateClass = hasSolved ? 'is-solved' : 'is-partial';
@@ -245,15 +258,27 @@
     }
 
     async function runBackgroundHighlight() {
-        clearHighlights();
+        const currentRunId = ++highlightRunId;
 
         const { hintsEnabled } = await getFeatureFlags();
-        if (!hintsEnabled) return;
+        if (currentRunId !== highlightRunId) return;
+
+        if (!hintsEnabled) {
+            clearHighlights();
+            return;
+        }
 
         const blocks = $('.que').get();
-        if (!blocks.length) return;
+        if (!blocks.length) {
+            clearHighlights();
+            return;
+        }
 
         const db = await getDatabase();
+        if (currentRunId !== highlightRunId) return;
+
+        clearHighlights();
+
         if (!Object.keys(db).length) return;
 
         for (const blockEl of blocks) {
@@ -425,7 +450,6 @@
 
         if (changes.hintsEnabled || changes.showPassedTests) {
             runBackgroundHighlight();
-            clearCourseTestBadges();
             highlightCourseTests();
             return;
         }
@@ -434,7 +458,6 @@
             runBackgroundHighlight();
         }
         if (changes.testsStats || changes[PERSONAL_TESTS_KEY]) {
-            clearCourseTestBadges();
             highlightCourseTests();
         }
     });
