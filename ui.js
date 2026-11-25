@@ -103,12 +103,24 @@ $(async function () {
     });
 
     $('#connectBtn').on('click', async function () {
-        const url = $('#serverUrl').val();
-        const token = $('#apiToken').val();
+        const url = $('#serverUrl').val().trim();
+        const token = $('#apiToken').val().trim();
         const $status = $('#settingsStatus').show();
 
-        if (!url.trim() || !token.trim()) {
+        if (!url || !token) {
             $status.text('Заповніть адресу сервера та токен.');
+            return;
+        }
+
+        try {
+            const originPattern = `${new URL(url).origin}/*`;
+            const granted = await chrome.permissions.request({ origins: [originPattern] });
+            if (!granted) {
+                $status.text('Не надано дозвіл на зʼєднання із сервером.');
+                return;
+            }
+        } catch {
+            $status.text('Некоректна адреса сервера.');
             return;
         }
 
