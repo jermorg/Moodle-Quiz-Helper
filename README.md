@@ -5,6 +5,12 @@
     <b>Розумний помічник для тестів у Moodle, який автоматично зберігає перевірені відповіді, обмінюється ними з іншими користувачами та підсвічує підказки під час проходження тесту.</b>
   </p>
 
+<p>
+    <a href="https://addons.mozilla.org/uk/firefox/addon/moodle-quiz-sync/" target="_blank">
+      <img src="https://img.shields.io/amo/v/moodle-quiz-sync?label=Firefox-addons&color=FF7139&style=for-the-badge&logo=firefoxbrowser&logoColor=white" alt="Firefox Add-on">
+    </a>
+  </p>
+
   <p>
     <img src="https://img.shields.io/badge/Manifest-V3-0381fe?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Manifest V3">
     <img src="https://img.shields.io/badge/UI_Style-One_UI-00a86b?style=for-the-badge" alt="One UI">
